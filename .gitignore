@@ -1,0 +1,48 @@
+# Python-specific ignores
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+*.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.log
+*.sqlite3
+db.sqlite3
+
+# Django-specific ignores
+*.pyc
+staticfiles/
+media/
+*.pot
+local_settings.py
+
+# Environment variables
+.env
+
+# IDE-specific ignores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js / npm-specific ignores (for React frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+
+# Docker-related ignores
+*.bak
+docker-compose.override.yml
+*.tmp
+*.pid
+.dockerignore
+
+# AWS-specific ignores
+*.pem
