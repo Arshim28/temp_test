@@ -1,0 +1,23 @@
+.map-view {
+    padding: 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}
+
+.map-view-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.map-view-header p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+}
+
+.map-container {
+    margin: 0 auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
