@@ -2,14 +2,79 @@
 
 import './ReportPage.css';
 import { FaSearch } from 'react-icons/fa';
+import { useState } from 'react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export default function ReportPage() {
-    const states = ["Maharashtra", "Gujarat", "Rajasthan", "Karnataka"]; // Example states
+    const [filters, setFilters] = useState({
+        state: '',
+        district: '',
+        taluka: '',
+        village: '',
+        reportType: '',
+        ownerName: '',
+    });
+
+    const isAllFiltersSelected = Object.values(filters).every((value) => value !== '');
+
+    const handleFilterChange = (field, value) => {
+        setFilters((prevFilters) => ({
+            ...prevFilters,
+            [field]: value,
+        }));
+    };
+
+    const states = ["Maharashtra", "Gujarat", "Rajasthan", "Karnataka"];
     const districts = ["District 1", "District 2", "District 3"];
     const talukas = ["Taluka 1", "Taluka 2"];
     const villages = ["Village 1", "Village 2"];
     const reportTypes = ["Type 1", "Type 2", "Type 3"];
-    const languages = ["English", "Hindi", "Marathi"];
+    const ownerNames = ["Sarvesh Patil", "Ramesh Patil", "Anjali Sharma", "Rahul Mehta"];
+
+    const reports = [
+        {
+            khataNumber: "125",
+            surveyNumber: "23/2",
+            villageName: "Akoli",
+            ownerNames: "Sarvesh Patil, Ramesh Patil",
+        },
+        {
+            khataNumber: "126",
+            surveyNumber: "45/7",
+            villageName: "Panvel",
+            ownerNames: "Rahul Mehta, Anjali Sharma",
+        },
+    ];
+
+    // Function to create a dummy PDF and trigger its download
+    const downloadDummyPDF = (report) => {
+        const docContent = `
+            Khata Number: ${report.khataNumber}
+            Survey Number: ${report.surveyNumber}
+            Village Name: ${report.villageName}
+            Owner Name(s): ${report.ownerNames}
+        `;
+        const blob = new Blob([docContent], { type: 'application/pdf' });
+        saveAs(blob, `Report_${report.khataNumber}.pdf`);
+    };
+
+    // Function to download all reports as a ZIP
+    const downloadAllReportsAsZip = () => {
+        const zip = new JSZip();
+        reports.forEach((report, index) => {
+            const docContent = `
+                Khata Number: ${report.khataNumber}
+                Survey Number: ${report.surveyNumber}
+                Village Name: ${report.villageName}
+                Owner Name(s): ${report.ownerNames}
+            `;
+            zip.file(`Report_${report.khataNumber}.pdf`, docContent);
+        });
+        zip.generateAsync({ type: 'blob' }).then((content) => {
+            saveAs(content, 'All_Reports.zip');
+        });
+    };
 
     return (
         <div className="report-page-container">
@@ -22,61 +87,74 @@ export default function ReportPage() {
             <div className="filter-section">
                 <h2 className="filter-heading">Filter Reports</h2>
                 <div className="filters-container">
-                    <select className="dropdown">
-                        <option>Select State</option>
+                    {/* Dropdowns for filters */}
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('state', e.target.value)}
+                    >
+                        <option value="">Select State</option>
                         {states.map((state, index) => (
                             <option key={index} value={state}>
                                 {state}
                             </option>
                         ))}
                     </select>
-
-                    <select className="dropdown">
-                        <option>Select District</option>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('district', e.target.value)}
+                    >
+                        <option value="">Select District</option>
                         {districts.map((district, index) => (
                             <option key={index} value={district}>
                                 {district}
                             </option>
                         ))}
                     </select>
-
-                    <select className="dropdown">
-                        <option>Select Taluka</option>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('taluka', e.target.value)}
+                    >
+                        <option value="">Select Taluka</option>
                         {talukas.map((taluka, index) => (
                             <option key={index} value={taluka}>
                                 {taluka}
                             </option>
                         ))}
                     </select>
-
-                    <select className="dropdown">
-                        <option>Select Village</option>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('village', e.target.value)}
+                    >
+                        <option value="">Select Village</option>
                         {villages.map((village, index) => (
                             <option key={index} value={village}>
                                 {village}
                             </option>
                         ))}
                     </select>
-
-                    <select className="dropdown">
-                        <option>Select Report Type</option>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('reportType', e.target.value)}
+                    >
+                        <option value="">Select Report Type</option>
                         {reportTypes.map((type, index) => (
                             <option key={index} value={type}>
                                 {type}
                             </option>
                         ))}
                     </select>
-
-                    <select className="dropdown">
-                        <option>Select Language</option>
-                        {languages.map((language, index) => (
-                            <option key={index} value={language}>
-                                {language}
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('ownerName', e.target.value)}
+                    >
+                        <option value="">Select Owner Name</option>
+                        {ownerNames.map((owner, index) => (
+                            <option key={index} value={owner}>
+                                {owner}
                             </option>
                         ))}
                     </select>
                 </div>
-
                 <div className="search-bar-container">
                     <input
                         type="text"
@@ -88,25 +166,56 @@ export default function ReportPage() {
                     </button>
                 </div>
             </div>
-
-            {/* Report Results */}
-            <div className="report-results">
-                <h2 className="results-heading">Available Reports</h2>
-                <div className="reports-container">
-                    <div className="report-card">
-                        <h3>Report Title 1</h3>
-                        <p>Details about Report 1...</p>
+            {/* Content Section */}
+            <div className="content-section">
+                {!isAllFiltersSelected ? (
+                    <div className="placeholder-content">
+                        <div className="placeholder-images">
+                            <div className="image-description-container">
+                                <img
+                                    src="/india.jpeg"
+                                    alt="Placeholder 1"
+                                    className="placeholder-image"
+                                />
+                                <p className="image-description">
+                                    6 districts covered across MH, Rajasthan, Telangana so far,
+                                    and rapidly expanding.
+                                </p>
+                            </div>
+                            <div className="image-description-container">
+                                <img
+                                    src="/report.png"
+                                    alt="Placeholder 2"
+                                    className="placeholder-image"
+                                />
+                                <p className="image-description">
+                                    A sample valuation report - generated for an arbitrary khata number.
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                    <div className="report-card">
-                        <h3>Report Title 2</h3>
-                        <p>Details about Report 2...</p>
+                ) : (
+                    <div className="report-list">
+                        {reports.map((report, index) => (
+                            <div key={index} className="report-card-row">
+                                <div>
+                                    <h3>Khata Number: {report.khataNumber}</h3>
+                                    <p>Survey Number: {report.surveyNumber}</p>
+                                    <p>Village Name: {report.villageName}</p>
+                                    <p>Owner Name(s): {report.ownerNames}</p>
+                                </div>
+                                <button
+                                    className="download-button"
+                                    onClick={() => downloadDummyPDF(report)}
+                                >
+                                    Download Report
+                                </button>
+                            </div>
+                        ))}
                     </div>
-                    <div className="report-card">
-                        <h3>Report Title 3</h3>
-                        <p>Details about Report 3...</p>
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );
 }
+

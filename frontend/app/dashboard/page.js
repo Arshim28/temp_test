@@ -41,7 +41,7 @@ export default function Dashboard() {
 
                 {/* Middle Section */}
                 <div className="dashboard-middle">
-                    <h2 className="plans-heading">Welcome!</h2>
+                    <h2 className="plans-heading">Welcome To your Terrastack account!</h2>
 
                     <h2 className="plans-heading">Your Registered Plans</h2>
                     <div className="plans-container">
