@@ -1,0 +1,110 @@
+/* app/components/SignInPage.css */
+
+.signin-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f4f6f9;
+    /* Light gray background for clean UI */
+    color: #333;
+    /* Dark gray text */
+    padding: 20px;
+}
+
+.signin-content {
+    max-width: 400px;
+    background-color: white;
+    /* White background for the form */
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    transition: transform 0.3s ease-in-out;
+}
+
+.signin-content h1 {
+    font-size: 28px;
+    margin-bottom: 20px;
+    font-weight: 600;
+    color: #1e3a8a;
+    /* Blue color for heading */
+}
+
+.signin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.signin-input {
+    padding: 14px;
+    border: 2px solid #d1d5db;
+    /* Light gray border */
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background-color: #f9fafb;
+    color: #333;
+    font-size: 16px;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.signin-input:focus {
+    background-color: #ffffff;
+    /* Focus background */
+    border-color: #3b82f6;
+    /* Blue border on focus */
+    outline: none;
+}
+
+.signin-button {
+    padding: 14px;
+    background-color: #3b82f6;
+    /* Blue button */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.signin-button:hover {
+    background-color: #2563eb;
+    /* Darker blue on hover */
+    transform: translateY(-2px);
+    /* Button lift effect */
+}
+
+.signin-button:active {
+    background-color: #1d4ed8;
+    /* Even darker blue when clicked */
+    transform: translateY(1px);
+    /* Slightly push button down */
+}
+
+.signin-footer {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #6b7280;
+    /* Light gray for footer text */
+}
+
+.signin-footer a {
+    color: #3b82f6;
+    /* Blue link color */
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.signin-footer a:hover {
+    text-decoration: underline;
+    /* Underline effect on hover */
+}
+
+.signin-error {
+    color: red;
+    font-size: 14px;
+    margin-top: 10px;
+}
