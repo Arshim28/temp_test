@@ -37,6 +37,10 @@ yarn-error.log
 dist/
 build/
 
+## MacOS
+.DS_Store
+
+
 # Docker-related ignores
 *.bak
 docker-compose.override.yml

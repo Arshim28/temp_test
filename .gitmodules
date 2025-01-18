@@ -1,0 +1,3 @@
+[submodule "submodules/land_value"]
+	path = submodules/land_value
+	url = git@github.com:terrastack-tech/land_value.git
