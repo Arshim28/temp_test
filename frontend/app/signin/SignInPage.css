@@ -102,3 +102,9 @@
     text-decoration: underline;
     /* Underline effect on hover */
 }
+
+.signin-error {
+    color: red;
+    font-size: 14px;
+    margin-top: 10px;
+}

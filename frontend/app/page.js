@@ -1,16 +1,9 @@
 // app/page.js
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import WelcomeSection from './components/WelcomeSection'; // Import WelcomeSection
-import FeaturesSection from './components/FeaturesSection';
-
+import HomePage from './components/Home';
 export default function Home() {
   return (
     <main>
-      <Navbar />
-      <WelcomeSection /> {/* Add WelcomeSection here */}
-      <FeaturesSection />
-      <Footer />
+      <HomePage />
     </main>
   );
 }

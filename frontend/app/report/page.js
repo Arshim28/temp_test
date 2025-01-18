@@ -1,5 +1,4 @@
-'use client';
-
+'use client'
 import './ReportPage.css';
 import { FaSearch } from 'react-icons/fa';
 import { useState } from 'react';
@@ -15,8 +14,6 @@ export default function ReportPage() {
         reportType: '',
         ownerName: '',
     });
-
-    const isAllFiltersSelected = Object.values(filters).every((value) => value !== '');
 
     const handleFilterChange = (field, value) => {
         setFilters((prevFilters) => ({
@@ -36,18 +33,30 @@ export default function ReportPage() {
         {
             khataNumber: "125",
             surveyNumber: "23/2",
-            villageName: "Akoli",
-            ownerNames: "Sarvesh Patil, Ramesh Patil",
+            villageName: "Village 1",
+            districtName: "District 1",
+            talukaName: "Taluka 1",
+            ownerNames: "Sarvesh Patil",
         },
         {
             khataNumber: "126",
             surveyNumber: "45/7",
-            villageName: "Panvel",
-            ownerNames: "Rahul Mehta, Anjali Sharma",
+            villageName: "Village 2",
+            districtName: "District 2",
+            talukaName: "Taluka 2",
+            ownerNames: "Rahul Mehta",
         },
     ];
 
-    // Function to create a dummy PDF and trigger its download
+    const filteredReports = reports.filter((report) => {
+        if (filters.district && report.districtName !== filters.district) return false;
+        if (filters.taluka && report.talukaName !== filters.taluka) return false;
+        if (filters.village && report.villageName !== filters.village) return false;
+        if (filters.reportType && report.reportType !== filters.reportType) return false;
+        if (filters.ownerName && !report.ownerNames.includes(filters.ownerName)) return false;
+        return true;
+    });
+
     const downloadDummyPDF = (report) => {
         const docContent = `
             Khata Number: ${report.khataNumber}
@@ -59,10 +68,9 @@ export default function ReportPage() {
         saveAs(blob, `Report_${report.khataNumber}.pdf`);
     };
 
-    // Function to download all reports as a ZIP
     const downloadAllReportsAsZip = () => {
         const zip = new JSZip();
-        reports.forEach((report, index) => {
+        filteredReports.forEach((report) => {
             const docContent = `
                 Khata Number: ${report.khataNumber}
                 Survey Number: ${report.surveyNumber}
@@ -78,16 +86,13 @@ export default function ReportPage() {
 
     return (
         <div className="report-page-container">
-            {/* Top Navbar */}
             <div className="top-navbar">
                 <div className="user-profile-circle">U</div>
             </div>
 
-            {/* Filter Section */}
             <div className="filter-section">
                 <h2 className="filter-heading">Filter Reports</h2>
                 <div className="filters-container">
-                    {/* Dropdowns for filters */}
                     <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('state', e.target.value)}
@@ -168,7 +173,7 @@ export default function ReportPage() {
             </div>
             {/* Content Section */}
             <div className="content-section">
-                {!isAllFiltersSelected ? (
+                {filters.district === '' ? (
                     <div className="placeholder-content">
                         <div className="placeholder-images">
                             <div className="image-description-container">
@@ -196,7 +201,13 @@ export default function ReportPage() {
                     </div>
                 ) : (
                     <div className="report-list">
-                        {reports.map((report, index) => (
+                        <button
+                            className="download-all-button"
+                            onClick={downloadAllReportsAsZip}
+                        >
+                            Download All ({filteredReports.length})
+                        </button>
+                        {filteredReports.map((report, index) => (
                             <div key={index} className="report-card-row">
                                 <div>
                                     <h3>Khata Number: {report.khataNumber}</h3>
@@ -218,4 +229,3 @@ export default function ReportPage() {
         </div>
     );
 }
-

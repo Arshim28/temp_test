@@ -2,8 +2,9 @@
 
 import './DashBoard.css';
 import { FaTachometerAlt, FaClipboardList, FaBoxOpen, FaCog, FaGlobe, FaFileDownload, FaMap, FaSearch } from 'react-icons/fa';
-
+import { useRouter } from 'next/navigation';
 export default function Dashboard() {
+    const router = useRouter();
     return (
         <div className="dashboard-container">
             {/* Top Navbar */}
@@ -59,17 +60,27 @@ export default function Dashboard() {
                 {/* Right Sidebar */}
                 <div className="dashboard-rightbar">
                     <ul className="rightbar-menu">
-                        <li className="menu-item">
-                            <FaGlobe className="menu-icon" /> Planet Explorer
+                        <li
+                            className="menu-item"
+                            onClick={() => router.push('/mapview')}
+                        >
+                            <FaGlobe className="menu-icon" /> Map View
                         </li>
-                        <li className="menu-item">
+                        <li
+                            className="menu-item"
+                            onClick={() => router.push('/report')}
+                        >
                             <FaFileDownload className="menu-icon" /> Download Report
                         </li>
+
                         <li className="menu-item">
                             <FaMap className="menu-icon" /> Download Heatmap
                         </li>
                         <li className="menu-item">
                             <FaSearch className="menu-icon" /> Search by Taluka ID
+                        </li>
+                        <li className="menu-item">
+                            FAQ
                         </li>
                     </ul>
                 </div>
