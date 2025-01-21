@@ -1,6 +1,6 @@
 from rest_framework.serializers import ModelSerializer
 
-from utils.models import Plan, Transaction, District, Talluka, Village
+from utils.models import Plan, Transaction, District, Talluka, Village, MaharashtraMetadata
 
 
 class PlanSerializer(ModelSerializer):
@@ -33,3 +33,8 @@ class TallukaSerializer(ModelSerializer):
     class Meta:
         model = Talluka
         fields = ["id", "name"]
+
+class MaharashtraMetadataSerializer(ModelSerializer):
+    class Meta:
+        model = MaharashtraMetadata
+        fields = ['state_name', 'district_name', 'taluka_name', 'village_name']

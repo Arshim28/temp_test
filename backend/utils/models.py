@@ -56,7 +56,7 @@ class Plan(models.Model):
         """
         Checks whether the valid_till date is in the future.
         """
-        return self.valid_till > timezone.now()
+        return (self.valid_till > timezone.now()) and (self.total_transactions < ALLOWED_TRANSACTIONS[self.plan_type])
 
     def __str__(self):
         return self.plan_type + "--" + self.entity_name
@@ -145,3 +145,27 @@ class Talluka(models.Model):
 
     class Meta:
         ordering = ["name"]
+
+class MaharashtraMetadata(models.Model):
+    ogc_fid = models.AutoField(primary_key=True)  
+    sid = models.IntegerField()
+    state_code = models.CharField(max_length=10)
+    state_name = models.CharField(max_length=100)
+    district_code = models.CharField(max_length=10)
+    district_name = models.CharField(max_length=100)
+    taluka_code = models.CharField(max_length=10)
+    taluka_name = models.CharField(max_length=100)
+    village_code = models.CharField(max_length=10)
+    village_version = models.CharField(max_length=10)
+    village_name = models.CharField(max_length=100)
+    village_name_marathi = models.CharField(max_length=100)
+    village_status = models.CharField(max_length=20)
+    census_2001_code = models.CharField(max_length=10)
+    census_2011_code = models.CharField(max_length=10)
+
+    class Meta:
+        managed = False
+        db_table = 'maharashtra_metadata'
+
+    def __str__(self):
+        return f"{self.village_name}, {self.district_name}, {self.state_name}"

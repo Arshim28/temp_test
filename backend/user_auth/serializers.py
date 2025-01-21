@@ -49,6 +49,7 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("A password is required to log in.")
 
         user = authenticate(email=email, password=password)
+        print(password, email, user)
 
         if user is None:
             raise serializers.ValidationError(
