@@ -26,7 +26,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.CharField(max_length=255)
-    username = serializers.CharField(max_length=255, read_only=True)
+    name = serializers.CharField(max_length=255, read_only=True)
     password = serializers.CharField(max_length=128, write_only=True)
     token = serializers.CharField(max_length=255, read_only=True)
     id = serializers.UUIDField(read_only=True)
@@ -67,18 +67,14 @@ class UserSerializer(serializers.ModelSerializer):
 
     password = serializers.CharField(max_length=128, min_length=8, write_only=True)
 
-    bio = serializers.CharField(source="profile.bio", read_only=True)
-
     class Meta:
         model = CustomUser
         fields = (
             "email",
-            "username",
+            "name",
             "password",
             "token",
-            "profile",
-            "bio",
-            "image",
+         
         )
 
     def update(self, instance, validated_data):

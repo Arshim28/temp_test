@@ -1,37 +1,58 @@
 'use client';
+import './SignInPage.css';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // For programmatic navigation
-import './SignInPage.css'; // Ensure the CSS is imported
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
 
 export default function SignInPage() {
+    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(''); // For displaying error messages
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [passwordError, setPasswordError] = useState('');
     const router = useRouter();
 
-    const handleSubmit = (e) => {
+    const handleSignIn = async (e) => {
         e.preventDefault();
 
-        // Standard credentials
-        // const standardEmail = 'user@terrastack.com';
-        // const standardPassword = 'password123';
-        const standardEmail = 'amit@gmail.com';
-        const standardPassword = 'amit';
+        if (password !== confirmPassword) {
+            setPasswordError('Passwords do not match.');
+            return;
+        }
 
-        // Validate credentials
-        if (email === standardEmail && password === standardPassword) {
-            console.log('Signed in successfully!');
-            router.push('/dashboard'); // Redirect to dashboard
-        } else {
-            setError('Invalid email or password. Please try again.');
+        setPasswordError('');
+
+        try {
+            const response = await axios.post('http://65.2.140.129:8000/api/users/', {
+                user: {
+                    name,
+                    email,
+                    password,
+                },
+            });
+            if (response.status === 201) {
+                console.log('Sign-up successful!');
+                router.push('/login');
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Something went wrong. Please try again.');
         }
     };
 
     return (
         <section className="signin-section">
             <div className="signin-content">
-                <h1>Sign In to Terrastack</h1>
-                <form onSubmit={handleSubmit} className="signin-form">
+                <h1>Create Your Account</h1>
+                <form onSubmit={handleSignIn} className="signin-form">
+                    <input
+                        type="text"
+                        placeholder="Username"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="signin-input"
+                        required
+                    />
                     <input
                         type="email"
                         placeholder="Email Address"
@@ -48,9 +69,22 @@ export default function SignInPage() {
                         className="signin-input"
                         required
                     />
-                    <button type="submit" className="signin-button">Sign In</button>
+                    <input
+                        type="password"
+                        placeholder="Confirm Password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="signin-input"
+                        required
+                    />
+                    {passwordError && <p className="signin-error">{passwordError}</p>}
+                    <button type="submit" className="signin-button">Sign Up</button>
                 </form>
-                {error && <p className="signin-error">{error}</p>} {/* Display error */}
+                {error && <p className="signin-error">{error}</p>}
+                <p className="signin-switch">
+                    Already have an account?{' '}
+                    <span onClick={() => router.push('/login')} className="signin-link">Login here</span>
+                </p>
             </div>
         </section>
     );

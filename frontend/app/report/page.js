@@ -4,7 +4,7 @@ import { FaSearch } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import axios from 'axios'; // Import axios
+import axios from 'axios';
 
 export default function ReportPage() {
     const [filters, setFilters] = useState({
@@ -12,31 +12,38 @@ export default function ReportPage() {
         district: '',
         taluka: '',
         village: '',
-        reportType: '', // reportType will be handled separately
+        reportType: '',
         ownerName: '',
     });
 
-    const [reports, setReports] = useState([]); // State for reports data
-    const [loading, setLoading] = useState(true); // State for loading status
+    const [reports, setReports] = useState([]);
+    const [hierarchy, setHierarchy] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Fetch the metadata when the component mounts
-        axios
-            .get('http://localhost:8000/api/maharashtra_metadata/') // API endpoint
-            .then((response) => {
-                setReports(response.data); // Store the fetched data
-                setLoading(false); // Set loading to false after data is fetched
-            })
-            .catch((error) => {
+        const fetchData = async () => {
+            try {
+                const [hierarchyRes, reportsRes] = await Promise.all([
+                    axios.get('http://65.2.140.129:8000/api/maharashtra-hierarchy/'),
+                    axios.get('http://65.2.140.129:8000/api/maharashtra_metadata/')
+                ]);
+                setHierarchy(hierarchyRes.data);
+                setReports(reportsRes.data);
+                setLoading(false);
+            } catch (error) {
                 console.error('Error fetching data:', error);
                 setLoading(false);
-            });
-    }, []); // Empty dependency array ensures this runs once when the component mounts
+            }
+        };
+        fetchData();
+    }, []);
 
     const handleFilterChange = (field, value) => {
-        setFilters((prevFilters) => ({
-            ...prevFilters,
+        setFilters(prev => ({
+            ...prev,
             [field]: value,
+            ...(field === 'district' && { taluka: '', village: '' }),
+            ...(field === 'taluka' && { village: '' })
         }));
     };
 
@@ -44,8 +51,8 @@ export default function ReportPage() {
         if (filters.district && report.district_name !== filters.district) return false;
         if (filters.taluka && report.taluka_name !== filters.taluka) return false;
         if (filters.village && report.village_name !== filters.village) return false;
-        if (filters.reportType && report.reportType !== filters.reportType) return false;
-        if (filters.ownerName && !report.owner_names.includes(filters.ownerName)) return false;
+        // if (filters.reportType && report.reportType !== filters.reportType) return false;
+        // if (filters.ownerName && !report.owner_names.includes(filters.ownerName)) return false;
         return true;
     });
 
@@ -76,13 +83,13 @@ export default function ReportPage() {
         });
     };
 
-    // Loading screen while data is being fetched
     if (loading) {
         return <div>Loading...</div>;
     }
 
-    // Static report types (as you wanted)
     const reportTypes = ["Type 1", "Type 2", "Type 3"];
+    const selectedDistrict = hierarchy.find(d => d.name === filters.district);
+    const selectedTaluka = selectedDistrict?.talukas?.find(t => t.name === filters.taluka);
 
     return (
         <div className="report-page-container">
@@ -103,41 +110,46 @@ export default function ReportPage() {
                         <option value="Rajasthan">Rajasthan</option>
                         <option value="Karnataka">Karnataka</option>
                     </select>
+
                     <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('district', e.target.value)}
                     >
                         <option value="">Select District</option>
-                        {reports.map((report, index) => (
-                            <option key={index} value={report.district_name}>
-                                {report.district_name}
+                        {hierarchy.map(district => (
+                            <option key={district.code} value={district.name}>
+                                {district.name}
                             </option>
                         ))}
                     </select>
+
                     <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('taluka', e.target.value)}
+                        disabled={!filters.district}
                     >
                         <option value="">Select Taluka</option>
-                        {reports.map((report, index) => (
-                            <option key={index} value={report.taluka_name}>
-                                {report.taluka_name}
+                        {selectedDistrict?.talukas?.map(taluka => (
+                            <option key={taluka.code} value={taluka.name}>
+                                {taluka.name}
                             </option>
                         ))}
                     </select>
+
                     <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('village', e.target.value)}
+                        disabled={!filters.taluka}
                     >
                         <option value="">Select Village</option>
-                        {reports.map((report, index) => (
-                            <option key={index} value={report.village_name}>
-                                {report.village_name}
+                        {selectedTaluka?.villages?.map(village => (
+                            <option key={village.code} value={village.name}>
+                                {village.name}
                             </option>
                         ))}
                     </select>
-                    {/* Static report type selection */}
-                    <select
+
+                    {/* <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('reportType', e.target.value)}
                     >
@@ -147,8 +159,9 @@ export default function ReportPage() {
                                 {type}
                             </option>
                         ))}
-                    </select>
-                    <select
+                    </select> */}
+
+                    {/* <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('ownerName', e.target.value)}
                     >
@@ -158,15 +171,52 @@ export default function ReportPage() {
                                 {report.owner_names}
                             </option>
                         ))}
-                    </select>
+                    </select> */}
+                    <input
+                        type="text"
+                        className="search-bar"
+                        placeholder="Search by Khata Number or Plot ID..."
+                    />
+                    <button className="search-button">
+                        <FaSearch />
+                    </button>
+                    <input
+                        type="text"
+                        className="search-bar"
+                        placeholder="Search by Latitude or Longitude..."
+                    />
+                    <button className="search-button">
+                        <FaSearch />
+                    </button>
                 </div>
             </div>
 
-            {/* Content Section */}
             <div className="content-section">
                 {filters.district === '' ? (
                     <div className="placeholder-content">
-                        {/* Placeholder content */}
+                        <div className="placeholder-images">
+                            <div className="image-description-container">
+                                <img
+                                    src="/india.jpeg"
+                                    alt="Placeholder 1"
+                                    className="placeholder-image"
+                                />
+                                <p className="image-description">
+                                    6 districts covered across MH, Rajasthan, Telangana so far,
+                                    and rapidly expanding.
+                                </p>
+                            </div>
+                            <div className="image-description-container">
+                                <img
+                                    src="/report.png"
+                                    alt="Placeholder 2"
+                                    className="placeholder-image"
+                                />
+                                <p className="image-description">
+                                    A sample valuation report - generated for an arbitrary khata number.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 ) : (
                     <div className="report-list">

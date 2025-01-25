@@ -3,10 +3,11 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 
 from .renderers import UserJSONRenderer
 from .serializers import RegistrationSerializer, LoginSerializer, UserSerializer
+from utils.serializers import PlanSerializer, TransactionSerializer
 import logging
 
 
@@ -64,7 +65,7 @@ class UserRetrieveUpdateAPIView(RetrieveUpdateAPIView):
         user_data = request.data.get("user", {})
 
         serializer_data = {
-            "username": user_data.get("username", request.user.username),
+            "name": user_data.get("name", request.user.name),
             "email": user_data.get("email", request.user.email),
         }
 
@@ -76,11 +77,20 @@ class UserRetrieveUpdateAPIView(RetrieveUpdateAPIView):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def account_details(request):
     if request.method == "GET":
         user = request.user
 
         plans = user.plans.all()
-        print(plans)
+        transactions = user.transactions.all()
+        plan_serializer = PlanSerializer(plans, many=True)
+        transaction_serializer = TransactionSerializer(transactions, many=True)
+        data = {
+            "user": user.name,
+            "email": user.email,
+            "plans": plan_serializer.data,
+            "transactions": transaction_serializer.data,
+        }
 
         return Response(status=status.HTTP_200_OK)

@@ -1,34 +1,29 @@
-/* app/components/SignInPage.css */
-
 .signin-section {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background-color: #f4f6f9;
-    /* Light gray background for clean UI */
-    color: #333;
-    /* Dark gray text */
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: #ffffff;
     padding: 20px;
+    font-family: 'Roboto', sans-serif;
 }
 
 .signin-content {
     max-width: 400px;
-    background-color: white;
-    /* White background for the form */
+    background-color: #ffffff;
     padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.2);
     text-align: center;
     transition: transform 0.3s ease-in-out;
 }
 
 .signin-content h1 {
-    font-size: 28px;
+    font-size: 32px;
     margin-bottom: 20px;
-    font-weight: 600;
-    color: #1e3a8a;
-    /* Blue color for heading */
+    font-weight: 700;
+    color: #2563eb;
 }
 
 .signin-form {
@@ -38,73 +33,62 @@
 }
 
 .signin-input {
-    padding: 14px;
-    border: 2px solid #d1d5db;
-    /* Light gray border */
-    border-radius: 8px;
-    margin-bottom: 15px;
+    padding: 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
     background-color: #f9fafb;
-    color: #333;
+    color: #111827;
     font-size: 16px;
     transition: border-color 0.3s ease, background-color 0.3s ease;
 }
 
 .signin-input:focus {
     background-color: #ffffff;
-    /* Focus background */
     border-color: #3b82f6;
-    /* Blue border on focus */
     outline: none;
 }
 
 .signin-button {
-    padding: 14px;
-    background-color: #3b82f6;
-    /* Blue button */
-    color: white;
+    padding: 16px;
+    background-color: #2563eb;
+    color: #ffffff;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .signin-button:hover {
-    background-color: #2563eb;
-    /* Darker blue on hover */
+    background-color: #1d4ed8;
     transform: translateY(-2px);
-    /* Button lift effect */
 }
 
 .signin-button:active {
-    background-color: #1d4ed8;
-    /* Even darker blue when clicked */
+    background-color: #1e40af;
     transform: translateY(1px);
-    /* Slightly push button down */
-}
-
-.signin-footer {
-    margin-top: 20px;
-    font-size: 14px;
-    color: #6b7280;
-    /* Light gray for footer text */
-}
-
-.signin-footer a {
-    color: #3b82f6;
-    /* Blue link color */
-    text-decoration: none;
-    font-weight: 600;
-}
-
-.signin-footer a:hover {
-    text-decoration: underline;
-    /* Underline effect on hover */
 }
 
 .signin-error {
-    color: red;
+    color: #ef4444;
     font-size: 14px;
     margin-top: 10px;
+}
+
+.signin-switch {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.signin-link {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.signin-link:hover {
+    text-decoration: underline;
 }

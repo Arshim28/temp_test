@@ -22,7 +22,7 @@ class AccessLevelFilter(SimpleListFilter):
         return [
             ("Admin", "Admin"),
             ("District", "District"),
-            ("Talluka", "Talluka"),
+            ("Taluka", "Taluka"),
             ("Village", "Village"),
             ("Inactive", "Inactive"),
         ]

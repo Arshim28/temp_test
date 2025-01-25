@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.CreateModel(
-            name="Talluka",
+            name="Taluka",
             fields=[
                 (
                     "id",
@@ -98,9 +98,9 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "talluka",
+                    "taluka",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="utils.talluka"
+                        on_delete=django.db.models.deletion.CASCADE, to="utils.taluka"
                     ),
                 ),
             ],

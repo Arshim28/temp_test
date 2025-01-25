@@ -100,8 +100,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             elif plan.plan_type == "District":
                 access_level = "District"
                 break
-            elif plan.plan_type == "Talluka" and access_level != "District":
-                access_level = "Talluka"
+            elif plan.plan_type == "Taluka" and access_level != "District":
+                access_level = "Taluka"
 
         return access_level
 
@@ -130,7 +130,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
         data = {
             "Village": [],
-            "Talluka": [],
+            "Taluka": [],
             "District": [],
         }
 
@@ -138,8 +138,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             entity_name = plan.entity_name
             if plan.plan_type == "Village":
                 data["Village"].append(entity_name)
-            elif plan.plan_type == "Talluka":
-                data["Talluka"].append(entity_name)
+            elif plan.plan_type == "Taluka":
+                data["Taluka"].append(entity_name)
             elif plan.plan_type == "District":
                 data["District"].append(entity_name)
 

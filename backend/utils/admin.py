@@ -1,9 +1,16 @@
 from django.contrib import admin
+from django import forms
 
-from .models import Plan, Transaction
+from .models import Plan, Transaction, MaharashtraMetadata
+
+
+
+
 
 
 class PlanAdmin(admin.ModelAdmin):
+ 
+
     list_display = (
         "plan_type",
         "user",
@@ -15,11 +22,10 @@ class PlanAdmin(admin.ModelAdmin):
     list_filter = ("created_at", "updated_at")
     search_fields = ("entity_name", "user__username", "user__email")
     ordering = ("-created_at",)
-    # actions = None
+
 
     def get_actions(self, request):
         actions = super().get_actions(request)
-
         access_level = request.user.access_level
 
         if access_level == "Admin":

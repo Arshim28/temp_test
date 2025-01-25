@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                         choices=[
                             ("Village", "Village"),
                             ("District", "District"),
-                            ("Talluka", "Talluka"),
+                            ("Taluka", "Taluka"),
                         ],
                         max_length=255,
                     ),

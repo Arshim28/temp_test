@@ -5,11 +5,10 @@ from django.utils import timezone
 from django.db import models
 from user_auth.models import CustomUser
 
-PLAN_TYPE = [("Village", "Village"), ("District", "District"), ("Talluka", "Talluka")]
+PLAN_TYPE = [("Village", "Village"), ("District", "District"), ("Taluka", "Taluka")]
 
 # TODO: Make this dynamic, so that this can be changed from the admin panel.
-ALLOWED_TRANSACTIONS = {"Village": 5, "District": 5, "Talluka": 5}
-
+ALLOWED_TRANSACTIONS = {"Village": 5, "District": 5, "Taluka": 5, "Talluka": 5}
 
 class Plan(models.Model):
     """Model for Plans"""
@@ -64,7 +63,6 @@ class Plan(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
-
 class Transaction(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -107,22 +105,17 @@ class Transaction(models.Model):
     class Meta:
         ordering = ["created_at"]
 
-
-# NOTE: Test Models for now, change later on.
-
-
 class Village(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=255, null=False, blank=False)
     district = models.ForeignKey(to="District", on_delete=models.CASCADE, db_index=True)
-    talluka = models.ForeignKey(to="Talluka", on_delete=models.CASCADE, db_index=True)
+    taluka = models.ForeignKey(to="Taluka", on_delete=models.CASCADE, db_index=True)
     data = models.JSONField(null=True, blank=True)
 
     class Meta:
         ordering = ["name"]
-
 
 class District(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -134,8 +127,7 @@ class District(models.Model):
     class Meta:
         ordering = ["name"]
 
-
-class Talluka(models.Model):
+class Taluka(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

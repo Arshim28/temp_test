@@ -8,7 +8,10 @@ from .views import (
     RetrieveTransactionView,
     report_gen,
     report_gen2,
-    MaharashtraMetadataList
+    report_gen3,
+    MaharashtraMetadataList,
+    maharashtra_hierarchy, 
+    get_metadata
 )
 
 urlpatterns = [
@@ -32,8 +35,11 @@ urlpatterns = [
         "report-gen/", report_gen, name="report-gen"
     ),
     path("report_gen/", report_gen2, name="report_gen"),
+    path("report_gen2/", report_gen3, name="report_gen2"),
     path(
         'maharashtra_metadata/', MaharashtraMetadataList.as_view(), name='maharashtra_metadata_list'
     ),
+    path('maharashtra-hierarchy/', maharashtra_hierarchy, name='maharashtra_hierarchy'),
+    path('maharashtra-md/', get_metadata, name='get_metadata')
 
 ]
