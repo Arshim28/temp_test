@@ -1,21 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, LayersControl, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, LayersControl, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.vectorgrid';
 import './MapView.css';
 
-function VectorTileLayer({ url, layerId }) {
+function VectorTileLayer({ layerData }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!map || !url || !layerId) return;
+    if (!map || !layerData) return;
 
-    const vectorLayer = L.vectorGrid.protobuf(url, {
+    // Set map view to layer bounds
+    const bounds = new L.LatLngBounds(
+      [layerData.bounds[1], layerData.bounds[0]],
+      [layerData.bounds[3], layerData.bounds[2]]
+    );
+    map.fitBounds(bounds);
+
+    // Create vector layer with properties from JSON
+    const vectorLayer = L.vectorGrid.protobuf(layerData.tileurl, {
       vectorTileLayerStyles: {
-        [layerId]: {
+        [layerData.id]: {
           fillColor: '#3388ff',
           color: '#3388ff',
           weight: 2,
@@ -23,65 +31,86 @@ function VectorTileLayer({ url, layerId }) {
           fillOpacity: 0.3,
         },
       },
+      getFeatureId: (f) => f.properties.gid,
+      interactive: true,
     }).addTo(map);
 
     return () => {
       map.removeLayer(vectorLayer);
     };
-  }, [map, url, layerId]);
+  }, [map, layerData]);
 
   return null;
 }
 
 export default function MapView() {
-  const [layers, setLayers] = useState([]);
+  const [availableLayers, setAvailableLayers] = useState([]);
+  const [loadedLayers, setLoadedLayers] = useState([]);
+  const [selectedLayerId, setSelectedLayerId] = useState('');
 
   useEffect(() => {
-    const fetchLayers = async () => {
+    const fetchLayerIndex = async () => {
       try {
         const response = await fetch('http://65.2.140.129:7800/index.json');
         const data = await response.json();
-        const layersArray = Object.values(data);
-        setLayers(layersArray);
+        setAvailableLayers(Object.values(data));
       } catch (error) {
-        console.error('Error fetching layers:', error);
+        console.error('Error fetching layer index:', error);
       }
     };
-    fetchLayers();
+    fetchLayerIndex();
   }, []);
+
+  const handleLoadLayer = async () => {
+    if (!selectedLayerId || loadedLayers.some(l => l.id === selectedLayerId)) return;
+
+    try {
+      const layer = availableLayers.find(l => l.id === selectedLayerId);
+      const response = await fetch(layer.detailurl);
+      const layerData = await response.json();
+      
+      setLoadedLayers(prev => [...prev, layerData]);
+    } catch (error) {
+      console.error('Error loading layer details:', error);
+    }
+  };
 
   return (
     <div className="map-view">
+      <div className="map-controls">
+        <select 
+          value={selectedLayerId} 
+          onChange={(e) => setSelectedLayerId(e.target.value)}
+        >
+          <option value="">Select a layer</option>
+          {availableLayers.map(layer => (
+            <option key={layer.id} value={layer.id}>
+              {layer.name} ({layer.geometrytype})
+            </option>
+          ))}
+        </select>
+        <button onClick={handleLoadLayer} disabled={!selectedLayerId}>
+          Load Layer
+        </button>
+      </div>
+
       <div className="map-fullscreen">
-        <MapContainer center={[51.505, -0.09]} zoom={13} style={{ height: '100%', width: '100%' }}>
+        <MapContainer center={[21.0486, 75.5931]} zoom={13} style={{ height: '100%', width: '100%' }}>
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution="&copy; OpenStreetMap contributors"
+          />
+          
           <LayersControl position="topright">
-            <LayersControl.BaseLayer checked name="OpenStreetMap">
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution="&copy; OpenStreetMap contributors"
-              />
-            </LayersControl.BaseLayer>
-            <LayersControl.BaseLayer name="Satellite">
-              <TileLayer
-                url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                attribution="&copy; OpenTopoMap contributors"
-              />
-            </LayersControl.BaseLayer>
-            {layers.map(layer => (
-              <LayersControl.Overlay key={layer.id} name={layer.name}>
-                <VectorTileLayer
-                  url={`http://65.2.140.129:7800/${layer.id}/{z}/{x}/{y}.pbf`}
-                  layerId={layer.id}
-                />
+            {loadedLayers.map(layerData => (
+              <LayersControl.Overlay 
+                key={layerData.id} 
+                name={`${layerData.name} (${layerData.geometrytype})`}
+              >
+                <VectorTileLayer layerData={layerData} />
               </LayersControl.Overlay>
             ))}
           </LayersControl>
-          <Marker position={[51.505, -0.09]}>
-            <Popup>
-              <strong>Land Plot</strong>: $200,000<br />
-              <button onClick={() => alert("Details coming soon!")}>More Info</button>
-            </Popup>
-          </Marker>
         </MapContainer>
       </div>
     </div>
