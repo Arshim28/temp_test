@@ -1,31 +1,63 @@
-/* Map View Section */
-.map-view {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    background-color: #ffffff;
-    /* White map view background */
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
 }
 
-.map-fullscreen {
-    flex: 1;
-    height: calc(100% - 100px);
-    /* Adjust for header height */
-    width: 100%;
-    position: relative;
-    overflow: hidden;
-    border-top: 3px solid #0056b3;
-    /* Darker blue separator */
-    background-color: #f8f9fa;
+.controls {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  display: flex;
+  gap: 10px;
+  background-color: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Leaflet Map Container */
-.leaflet-container {
-    height: 100%;
-    width: 100%;
-    border-radius: 8px;
-    /* Rounded edges for a clean look */
-    border: 1px solid #e0e0e0;
-    /* Subtle border for definition */
+select,
+button {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  color: #333;
+  /* Add text color to ensure visibility */
+}
+
+select:hover,
+button:hover {
+  border-color: #007BFF;
+  color: #007BFF;
+  /* Change text color on hover for better feedback */
+}
+
+select:focus,
+button:focus {
+  outline: none;
+  border-color: #007BFF;
+  box-shadow: 0px 0px 8px rgba(0, 123, 255, 0.5);
+  color: #007BFF;
+  /* Ensure text color is visible on focus */
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #ccc;
+  background-color: #f9f9f9;
+  color: #666;
+  /* Set a darker text color for disabled buttons */
+}
+
+button:disabled:hover {
+  border-color: #ccc;
+  box-shadow: none;
+  color: #666;
+  /* Ensure text color remains visible on hover for disabled buttons */
 }

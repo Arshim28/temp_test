@@ -29,7 +29,8 @@ export default function LoginPage() {
                 router.push('/dashboard'); // Redirect to dashboard
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
+            const defaultError = 'Invalid credentials. Please try again.';
+            setError(err.response?.data?.message || defaultError);
         }
     };
 

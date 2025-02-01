@@ -2,6 +2,7 @@ from .models import CustomUser
 
 
 class ManageAccessMiddleware:
+    """To store logs and important information in the database"""
 
     def __init__(self, get_response):
         self.get_response = get_response

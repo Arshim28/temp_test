@@ -1,118 +1,202 @@
 'use client';
-
-import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, LayersControl, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.vectorgrid';
+import { useEffect, useRef, useState } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import './MapView.css';
 
-function VectorTileLayer({ layerData }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!map || !layerData) return;
-
-    // Set map view to layer bounds
-    const bounds = new L.LatLngBounds(
-      [layerData.bounds[1], layerData.bounds[0]],
-      [layerData.bounds[3], layerData.bounds[2]]
-    );
-    map.fitBounds(bounds);
-
-    // Create vector layer with properties from JSON
-    const vectorLayer = L.vectorGrid.protobuf(layerData.tileurl, {
-      vectorTileLayerStyles: {
-        [layerData.id]: {
-          fillColor: '#3388ff',
-          color: '#3388ff',
-          weight: 2,
-          opacity: 1,
-          fillOpacity: 0.3,
-        },
-      },
-      getFeatureId: (f) => f.properties.gid,
-      interactive: true,
-    }).addTo(map);
-
-    return () => {
-      map.removeLayer(vectorLayer);
-    };
-  }, [map, layerData]);
-
-  return null;
-}
-
 export default function MapView() {
-  const [availableLayers, setAvailableLayers] = useState([]);
-  const [loadedLayers, setLoadedLayers] = useState([]);
-  const [selectedLayerId, setSelectedLayerId] = useState('');
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const [layers, setLayers] = useState([]);
+  const [selectedLayer, setSelectedLayer] = useState(null);
+  const [loadedLayer, setLoadedLayer] = useState(null);
+  const metadataRef = useRef(null); // Use a ref for metadata
 
   useEffect(() => {
-    const fetchLayerIndex = async () => {
+    const fetchLayers = async () => {
       try {
         const response = await fetch('http://65.2.140.129:7800/index.json');
+        if (!response.ok) throw new Error('Failed to fetch layers');
         const data = await response.json();
-        setAvailableLayers(Object.values(data));
+        console.log('Fetched layers:', data);
+        setLayers(Object.values(data));
       } catch (error) {
-        console.error('Error fetching layer index:', error);
+        console.error('Error fetching layers:', error);
       }
     };
-    fetchLayerIndex();
+    fetchLayers();
   }, []);
 
-  const handleLoadLayer = async () => {
-    if (!selectedLayerId || loadedLayers.some(l => l.id === selectedLayerId)) return;
+  useEffect(() => {
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: {
+        version: 8,
+        sources: {
+          'basemap': {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256
+          }
+        },
+        layers: [{
+          id: 'basemap',
+          type: 'raster',
+          source: 'basemap'
+        }]
+      },
+      center: [75.7139, 21.0486],
+      zoom: 12
+    });
 
-    try {
-      const layer = availableLayers.find(l => l.id === selectedLayerId);
-      const response = await fetch(layer.detailurl);
-      const layerData = await response.json();
-      
-      setLoadedLayers(prev => [...prev, layerData]);
-    } catch (error) {
-      console.error('Error loading layer details:', error);
+    mapRef.current = map;
+    return () => map.remove();
+  }, []);
+
+  const loadLayer = async () => {
+    if (!selectedLayer || !mapRef.current) return;
+    const map = mapRef.current;
+
+    // Remove the previously loaded layer if it exists
+    if (loadedLayer) {
+      map.removeLayer('coord-debug');
+      map.removeSource('dynamic-source');
     }
+
+    // Fetch metadata for the selected layer
+    try {
+      const response = await fetch(`http://65.2.140.129:7800/${selectedLayer.id}.json`);
+      if (!response.ok) throw new Error('Failed to fetch metadata');
+      const data = await response.json();
+      const geometryType = data
+      console.log('Fetched metadata:', data);
+      metadataRef.current = data; // Update the ref with the latest metadata
+    } catch (error) {
+      console.error('Error fetching metadata:', error);
+      metadataRef.current = null; // Reset the ref if fetching fails
+    }
+
+    let geometryType = metadataRef.current?.geometrytype;
+    if (!geometryType) {
+      console.error("Geometry type is missing from metadata.");
+      return;
+    }
+
+    let layerType, _paint = {};
+
+    if (geometryType === "Point" || geometryType === "MultiPoint") {
+        layerType = "circle";
+        _paint = {
+            "circle-radius": 6,
+            "circle-color": "#ff0000"
+        };
+    } else if (geometryType === "LineString" || geometryType === "MultiLineString" || geometryType === "MultiCurve") {
+        layerType = "line";
+        _paint = {
+            "line-width": 2,
+            "line-color": "#0000ff"
+        };
+    } else if (geometryType === "Polygon" || geometryType === "MultiPolygon" || geometryType === "Geometry") {
+        layerType = "fill";
+        _paint = {
+            'fill-color': '#0080FF',
+            'fill-opacity': 0.2,
+            'fill-outline-color': '#0000FF'
+        };
+    } else {
+        console.error("Unsupported geometry type:", geometryType);
+        return;
+    }
+
+    // Add the new layer
+    map.addSource('dynamic-source', {
+      type: 'vector',
+      tiles: [`http://65.2.140.129:7800/${selectedLayer.id}/{z}/{x}/{y}.pbf`],
+      minzoom: 0,
+      maxzoom: 22
+    });
+
+    map.addLayer({
+      id: 'coord-debug',
+      type: layerType,
+      source: 'dynamic-source',
+      'source-layer': selectedLayer.id,
+      paint: _paint
+    });
+
+    // Add click event listener to show metadata in a popup
+    map.on('click', 'coord-debug', (e) => {
+      if (!metadataRef.current) {
+        console.error('Metadata not loaded');
+        return;
+      }
+
+      const features = map.queryRenderedFeatures(e.point, { layers: ['coord-debug'] });
+      if (features.length > 0) {
+        const feature = features[0];
+        const properties = feature.properties;
+
+        // Create a popup
+        new maplibregl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div>
+              <h3>${selectedLayer.name}</h3>
+              <ul>
+                ${metadataRef.current.properties.map(prop => `
+                  <li><strong>${prop.name}</strong>: ${properties[prop.name] || 'N/A'}</li>
+                `).join('')}
+              </ul>
+            </div>`
+          )
+          .addTo(map);
+      }
+    });
+
+    // Change cursor to pointer when hovering over points
+    map.on('mouseenter', 'coord-debug', () => {
+      map.getCanvas().style.cursor = 'pointer';
+    });
+
+    // Change cursor back to default when not hovering over points
+    map.on('mouseleave', 'coord-debug', () => {
+      map.getCanvas().style.cursor = '';
+    });
+
+    setLoadedLayer(selectedLayer);
+  };
+
+  const removeLayer = () => {
+    if (!mapRef.current || !loadedLayer) return;
+    const map = mapRef.current;
+
+    // Remove the layer and source
+    map.removeLayer('coord-debug');
+    map.removeSource('dynamic-source');
+
+    // Remove event listeners
+    map.off('click', 'coord-debug');
+    map.off('mouseenter', 'coord-debug');
+    map.off('mouseleave', 'coord-debug');
+
+    // Reset the loaded layer state
+    setLoadedLayer(null);
+    metadataRef.current = null; // Reset the ref
   };
 
   return (
-    <div className="map-view">
-      <div className="map-controls">
-        <select 
-          value={selectedLayerId} 
-          onChange={(e) => setSelectedLayerId(e.target.value)}
-        >
-          <option value="">Select a layer</option>
-          {availableLayers.map(layer => (
-            <option key={layer.id} value={layer.id}>
-              {layer.name} ({layer.geometrytype})
-            </option>
+    <div className="map-container">
+      <div className="controls">
+        <select onChange={(e) => setSelectedLayer(layers.find(layer => layer.id === e.target.value))}>
+          <option value="">Select a Layer</option>
+          {layers.map(layer => (
+            <option key={layer.id} value={layer.id}>{layer.name}</option>
           ))}
         </select>
-        <button onClick={handleLoadLayer} disabled={!selectedLayerId}>
-          Load Layer
-        </button>
+        <button onClick={loadLayer} disabled={!selectedLayer}>Load Layer</button>
+        <button onClick={removeLayer} disabled={!loadedLayer}>Remove Layer</button>
       </div>
-
-      <div className="map-fullscreen">
-        <MapContainer center={[21.0486, 75.5931]} zoom={13} style={{ height: '100%', width: '100%' }}>
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution="&copy; OpenStreetMap contributors"
-          />
-          
-          <LayersControl position="topright">
-            {loadedLayers.map(layerData => (
-              <LayersControl.Overlay 
-                key={layerData.id} 
-                name={`${layerData.name} (${layerData.geometrytype})`}
-              >
-                <VectorTileLayer layerData={layerData} />
-              </LayersControl.Overlay>
-            ))}
-          </LayersControl>
-        </MapContainer>
-      </div>
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100vh' }} />
     </div>
   );
 }

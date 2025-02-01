@@ -14,6 +14,7 @@ export default function ReportPage() {
         village: '',
         reportType: '',
         ownerName: '',
+        surveyNumber: '', // Added survey number
     });
 
     const [reports, setReports] = useState([]);
@@ -51,36 +52,91 @@ export default function ReportPage() {
         if (filters.district && report.district_name !== filters.district) return false;
         if (filters.taluka && report.taluka_name !== filters.taluka) return false;
         if (filters.village && report.village_name !== filters.village) return false;
-        // if (filters.reportType && report.reportType !== filters.reportType) return false;
-        // if (filters.ownerName && !report.owner_names.includes(filters.ownerName)) return false;
+        if (filters.reportType && report.reportType !== filters.reportType) return false;
+        if (filters.ownerName && !report.owner_names.includes(filters.ownerName)) return false;
+        if (filters.surveyNumber && report.survey_number !== filters.surveyNumber) return false; // Filter by survey number
         return true;
     });
 
-    const downloadDummyPDF = (report) => {
-        const docContent = `
-            Khata Number: ${report.khata_number}
-            Survey Number: ${report.survey_number}
-            Village Name: ${report.village_name}
-            Owner Name(s): ${report.owner_names}
-        `;
-        const blob = new Blob([docContent], { type: 'application/pdf' });
-        saveAs(blob, `Report_${report.khata_number}.pdf`);
+    const downloadReportPDF = async (report) => {
+        try {
+            const params = new URLSearchParams({
+                state: 'maharashtra', // Assuming all reports are from Maharashtra
+                district: report.district_name,
+                taluka: report.taluka_name,
+                village: report.village_name,
+                survey_no: filters.surveyNumber || report.survey_number // Use the user-provided survey number if available
+            });
+
+            const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            saveAs(blob, `Report_${report.khata_number}.pdf`);
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            alert('Failed to download PDF. Please try again.');
+        }
     };
 
-    const downloadAllReportsAsZip = () => {
+    const downloadAllReportsAsZip = async () => {
         const zip = new JSZip();
-        filteredReports.forEach((report) => {
-            const docContent = `
-                Khata Number: ${report.khata_number}
-                Survey Number: ${report.survey_number}
-                Village Name: ${report.village_name}
-                Owner Name(s): ${report.owner_names}
-            `;
-            zip.file(`Report_${report.khata_number}.pdf`, docContent);
+        const downloadPromises = filteredReports.map(async (report) => {
+            try {
+                const params = new URLSearchParams({
+                    state: 'maharashtra',
+                    district: report.district_name,
+                    taluka: report.taluka_name,
+                    village: report.village_name,
+                    survey_no: filters.surveyNumber || report.survey_number // Use the user-provided survey number if available
+                });
+
+                const response = await fetch(`http://65.2.140.129:8000/report-gen/?${params}`);
+                if (!response.ok) throw new Error(`Failed to fetch ${report.khata_number}`);
+                const blob = await response.blob();
+                zip.file(`Report_${report.khata_number}.pdf`, blob);
+            } catch (error) {
+                console.error(`Error fetching report ${report.khata_number}:`, error);
+            }
         });
+
+        await Promise.all(downloadPromises);
         zip.generateAsync({ type: 'blob' }).then((content) => {
             saveAs(content, 'All_Reports.zip');
         });
+    };
+
+    const downloadReportBySurveyNumber = async () => {
+        if (!filters.surveyNumber) {
+            alert("Please enter a valid survey number.");
+            return;
+        }
+
+        try {
+            // Add additional parameters (district, taluka, village, state)
+            const params = new URLSearchParams({
+                state: 'maharashtra', // Assuming all reports are from Maharashtra
+                district: filters.district.toLowerCase(),
+                taluka: filters.taluka.toLowerCase(),
+                village: filters.village.toLowerCase(),
+                survey_no: filters.surveyNumber
+            });
+
+            const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            saveAs(blob, `Report_${filters.surveyNumber}.pdf`);
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            alert('Failed to download PDF. Please try again.');
+        }
     };
 
     if (loading) {
@@ -149,7 +205,7 @@ export default function ReportPage() {
                         ))}
                     </select>
 
-                    {/* <select
+                    <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('reportType', e.target.value)}
                     >
@@ -159,9 +215,9 @@ export default function ReportPage() {
                                 {type}
                             </option>
                         ))}
-                    </select> */}
+                    </select>
 
-                    {/* <select
+                    <select
                         className="dropdown"
                         onChange={(e) => handleFilterChange('ownerName', e.target.value)}
                     >
@@ -171,22 +227,23 @@ export default function ReportPage() {
                                 {report.owner_names}
                             </option>
                         ))}
-                    </select> */}
+                    </select>
+
+                    {/* Added survey number input field */}
                     <input
                         type="text"
-                        className="search-bar"
-                        placeholder="Search by Khata Number or Plot ID..."
+                        className="survey-number-input"
+                        placeholder="Enter Survey Number"
+                        value={filters.surveyNumber}
+                        onChange={(e) => handleFilterChange('surveyNumber', e.target.value)}
                     />
-                    <button className="search-button">
-                        <FaSearch />
-                    </button>
-                    <input
-                        type="text"
-                        className="search-bar"
-                        placeholder="Search by Latitude or Longitude..."
-                    />
-                    <button className="search-button">
-                        <FaSearch />
+
+                    {/* Added Download Button */}
+                    <button
+                        className="download-button"
+                        onClick={downloadReportBySurveyNumber}
+                    >
+                        Download Report by Survey Number
                     </button>
                 </div>
             </div>
@@ -236,7 +293,7 @@ export default function ReportPage() {
                                 </div>
                                 <button
                                     className="download-button"
-                                    onClick={() => downloadDummyPDF(report)}
+                                    onClick={() => downloadReportPDF(report)}
                                 >
                                     Download Report
                                 </button>

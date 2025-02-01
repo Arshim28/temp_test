@@ -1,4 +1,10 @@
+import uuid
+import logging
+from django.utils.timezone import now
+from django.utils import timezone
+
 from rest_framework import status
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -6,28 +12,59 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 
 from .renderers import UserJSONRenderer
-from .serializers import RegistrationSerializer, LoginSerializer, UserSerializer
+from .models import OTPVerification
+from .serializers import RegistrationSerializer, LoginSerializer, UserSerializer, ProfileSerializer
+from .helpers import send_otp, generate_otp
+
 from utils.serializers import PlanSerializer, TransactionSerializer
-import logging
+
 
 
 logger = logging.getLogger(__name__)
 
 
+
 class RegistrationAPIView(APIView):
-    # Allow any user (authenticated or not) to hit this endpoint.
     permission_classes = (AllowAny,)
     serializer_class = RegistrationSerializer
     renderer_classes = (UserJSONRenderer,)
 
     def post(self, request):
-        user = request.data.get("user", {})
+        user_data = request.data.get("user", {})
+        email = user_data.get("email")
+        verification_token = user_data.get("verification_token")
 
-        serializer = self.serializer_class(data=user)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        if not email or not verification_token:
+            return Response({"error": "Email and verification token are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Clean up expired verification tokens
+        OTPVerification.objects.filter(email=email, token_expires_at__lt=now()).delete()
+
+        try:
+            otp_entry = OTPVerification.objects.get(email=email, is_verified=True, verification_token=verification_token)
+
+            # Proceed with user registration
+            serializer = self.serializer_class(data=user_data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            profile_data = request.data.get("profile", {})
+            profile_data["user"] = serializer.data["id"]
+            profile_serializer = ProfileSerializer(data=profile_data)
+            profile_serializer.is_valid(raise_exception=True)
+            profile_serializer.save()
+
+            # Delete OTP entry after successful registration
+            OTPVerification.objects.filter(email=email).delete()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except OTPVerification.DoesNotExist:
+            print("error: Invalid or expired verification token")
+            return Response({"error": "Invalid or expired verification token"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 
 
 class LoginAPIView(APIView):
@@ -94,3 +131,64 @@ def account_details(request):
         }
 
         return Response(status=status.HTTP_200_OK)
+
+
+
+
+
+class RequestOTPView(APIView):
+    throttle_classes = [AnonRateThrottle]  # Basic rate limiting
+
+    def post(self, request):
+        email = request.data.get("email")
+
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        # Delete expired OTPs
+        OTPVerification.cleanup_expired(email)
+        # Generate OTP
+        otp = generate_otp()
+        expiry_time = now() + timezone.timedelta(minutes=5)  # OTP valid for 5 mins
+
+        # Remove old OTPs for the same email before creating a new one
+        OTPVerification.objects.filter(email=email).delete()
+        # Create new OTP entry
+        otp_obj = OTPVerification.objects.create(email=email, otp=otp, expires_at=expiry_time)
+        otp_sent = send_otp(email, otp)
+        if not otp_sent:
+            otp_obj.delete()
+            return Response({"error": "Failed to send OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message": "OTP sent!"}, status=status.HTTP_200_OK)
+
+class VerifyOTPView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+
+        # Clean up expired OTPs
+        OTPVerification.cleanup_expired(email)
+
+        try:
+            # NOTE: Room for improvement here!
+            otp_entry = OTPVerification.objects.filter(email=email, is_verified=False).latest("expires_at")
+            # Get latest valid OTP
+
+            if not otp_entry.is_valid() or otp_entry.otp != otp:
+                return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generate a one-time verification token
+            verification_token = uuid.uuid4()
+            token_expiry = now() + timezone.timedelta(minutes=10)
+
+            otp_entry.is_verified = True
+            otp_entry.verification_token = verification_token
+            otp_entry.token_expires_at = token_expiry
+            otp_entry.save()
+
+            return Response({
+                "message": "OTP verified!",
+                "verification_token": str(verification_token)
+            }, status=status.HTTP_200_OK)
+
+        except OTPVerification.DoesNotExist:
+            return Response({"error": "No valid OTP found"}, status=status.HTTP_400_BAD_REQUEST)

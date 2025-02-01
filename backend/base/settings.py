@@ -13,17 +13,23 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 from pathlib import Path
 import os
 import sys
+import environ
+
+env = environ.Env()
+environ.Env.read_env()
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(os.path.join(BASE_DIR, 'submodules', 'land_value'))
 
 
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-(c9#=hmzt1qqx2v@i$y2qe)1fp&0e49uln^&w_x20749md91v)"
+SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -46,7 +52,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "user_auth",
     "utils",
-    
+
 ]
 
 MIDDLEWARE = [
@@ -88,12 +94,12 @@ WSGI_APPLICATION = "base.wsgi.application"
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',  
-        'NAME': 'pilot',  
-        'USER': 'postgres',  
-        'PASSWORD': 'postgres',  
-        'HOST': 'localhost',  
-        'PORT': '5432',  
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'pilot',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -133,6 +139,16 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
+
+
+# Temporary Settings for SMTP Email
+EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env("EMAIL_PORT")
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+SENDER_MAIL = EMAIL_HOST_USER
 
 
 # Static files (CSS, JavaScript, Images)

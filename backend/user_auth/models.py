@@ -1,8 +1,8 @@
 import jwt
-
 import uuid
 
 from datetime import datetime, timedelta
+from django.utils.timezone import now
 from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -50,7 +50,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(db_index=True, unique=True)
     phone_number = models.BigIntegerField(null=True, blank=True)
 
-    # orders = models.ManyToManyField("orde.Order", related_name="user")
 
     ## User Permissions
     is_active = models.BooleanField(default=True)
@@ -149,3 +148,45 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         verbose_name = "User"
         verbose_name_plural = "Users"
         ordering = ["name", "email"]
+
+
+
+
+class UserProfile(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
+    )
+    login_as = models.CharField(max_length=255, blank=True, null=True)
+    user_type = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return self.user.name + "--" + str(self.user.email)
+
+    class Meta:
+        verbose_name = "User Profile"
+        verbose_name_plural = "User Profiles"
+        ordering = ["user__name", "user__email"]
+
+
+
+class OTPVerification(models.Model):
+    email = models.EmailField(unique=True)
+    otp = models.CharField(max_length=6)
+    expires_at = models.DateTimeField()
+    is_verified = models.BooleanField(default=False)
+    verification_token = models.UUIDField(default=None, null=True, blank=True)
+    token_expires_at = models.DateTimeField(null=True, blank=True)
+
+    def is_valid(self):
+        """ Check if the OTP is still valid """
+        return self.expires_at > now()
+
+    @staticmethod
+    def cleanup_expired(email):
+        """ Delete expired OTPs for a given email """
+        OTPVerification.objects.filter(email=email).filter(
+            expires_at__lt=now()
+        ).delete()
