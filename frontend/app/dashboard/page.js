@@ -8,6 +8,8 @@ import Sidebar from './components/Sidebar';
 import PlanList from './components/PlanList';
 import PurchasePlanForm from './components/PurchasePlanForm';
 import RightSidebar from './components/RightSidebar';
+import LoadingScreen from '../loader/page';
+
 
 export default function Dashboard() {
     const [plans, setPlans] = useState([]);
@@ -20,27 +22,28 @@ export default function Dashboard() {
     const token = localStorage.getItem('authToken');
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
 
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            if (!token) throw new Error('User is not authenticated.');
+
+            const userProfileResponse = await axios.get('http://65.2.140.129:8000/api/user/', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setUserDetails(userProfileResponse.data);
+
+            const plansResponse = await axios.get('http://65.2.140.129:8000/api/plans/', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setPlans(plansResponse.data.results);
+        } catch (err) {
+            setError(err.message || 'Failed to fetch data.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                if (!token) throw new Error('User is not authenticated.');
-
-                const userProfileResponse = await axios.get('http://65.2.140.129:8000/api/user/', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setUserDetails(userProfileResponse.data);
-
-                const plansResponse = await axios.get('http://65.2.140.129:8000/api/plans/', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setPlans(plansResponse.data.results);
-            } catch (err) {
-                setError(err.message || 'Failed to fetch data.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchData();
     }, []);
 
@@ -57,10 +60,13 @@ export default function Dashboard() {
     };
 
     const handleDashboardClick = () => {
-        setActiveSection('dashboard'); // Show plan list
+        setActiveSection('dashboard');
+        fetchData(); // Fetch updated plans when returning to dashboard
     };
 
-    if (loading) return <div>Loading data...</div>;
+    if (loading) {
+        return <LoadingScreen />;
+    }
     if (error) return <div>Error: {error}</div>;
 
     return (

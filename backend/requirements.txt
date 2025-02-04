@@ -51,7 +51,7 @@ joblib==1.4.2
 jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 kiwisolver==1.4.8
--e git+ssh://git@github.com/terrastack-tech/land_value.git@d1fcca7888df6180ce6e38b20304e40ea70b24ea#egg=land_value&subdirectory=../../../../backend/submodules/land_value
+-e git+ssh://git@github.com/terrastack-tech/land_value.git@98624ec70ab88b24ebeb26ed3f063e5cf06c897b#egg=land_value&subdirectory=../../../../backend/submodules/land_value
 lark==1.2.2
 lxml==5.3.0
 MarkupSafe==3.0.2
@@ -134,7 +134,7 @@ sqlparse==0.5.3
 sympy==1.13.1
 tabulate==0.9.0
 tensorboardX==2.6.2.2
--e git+ssh://git@github.com/terrastack-tech/python_utils.git@885acef1ff10f7fa38a80174725306d53de88a0e#egg=terra_utils&subdirectory=../../../../../../../backend/submodules/land_value/submodules/python_utils
+-e git+ssh://git@github.com/terrastack-tech/python_utils.git@57146ca13e3ba02ff0075e73798cad35fbd1ee7d#egg=terra_utils&subdirectory=../../../../../../../backend/submodules/land_value/submodules/python_utils
 thin-plate-spline==1.1.1
 threadpoolctl==3.5.0
 tifffile==2025.1.10

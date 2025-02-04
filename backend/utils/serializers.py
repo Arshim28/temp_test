@@ -3,9 +3,7 @@ from shapely.lib import is_valid
 from utils.models import (
     Plan,
     Transaction,
-    District,
-    Taluka,
-    Village,
+
     MaharashtraMetadata,
     ReportPlan,
     ReportTransaction
@@ -80,22 +78,10 @@ class TransactionSerializer(ModelSerializer):
 
 
 
-class DistrictSerializer(ModelSerializer):
-    class Meta:
-        model = District
-        fields = ["id", "name"]
 
 
-class VillageSerializer(ModelSerializer):
-    class Meta:
-        model = Village
-        fields = ["id", "name"]
 
 
-class TalukaSerializer(ModelSerializer):
-    class Meta:
-        model = Taluka
-        fields = ["id", "name"]
 
 class MaharashtraMetadataSerializer(ModelSerializer):
     class Meta:

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import axios from 'axios';
+import LoadingScreen from '../loader/page';
 
 export default function ReportPage() {
     const [filters, setFilters] = useState({
@@ -140,8 +141,9 @@ export default function ReportPage() {
     };
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <LoadingScreen />;
     }
+
 
     const reportTypes = ["Type 1", "Type 2", "Type 3"];
     const selectedDistrict = hierarchy.find(d => d.name === filters.district);

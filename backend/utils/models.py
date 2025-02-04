@@ -197,40 +197,16 @@ class Transaction(models.Model):
     class Meta:
         ordering = ["created_at"]
 
-class Village(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=255, null=False, blank=False)
-    district = models.ForeignKey(to="District", on_delete=models.CASCADE, db_index=True)
-    taluka = models.ForeignKey(to="Taluka", on_delete=models.CASCADE, db_index=True)
-    data = models.JSONField(null=True, blank=True)
 
-    class Meta:
-        ordering = ["name"]
 
-class District(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=255, null=False, blank=False)
-    data = models.JSONField(null=True, blank=True)
 
-    class Meta:
-        ordering = ["name"]
 
-class Taluka(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=255, null=False, blank=False)
-    district = models.ForeignKey(to="District", on_delete=models.CASCADE, db_index=True)
-    data = models.JSONField(null=True, blank=True)
 
-    class Meta:
-        ordering = ["name"]
 
 class MaharashtraMetadata(models.Model):
+    """Model for Maharashtra Metadata
+    Note: always use using('external_db') to access this model.
+    """
     ogc_fid = models.AutoField(primary_key=True)
     sid = models.IntegerField()
     state_code = models.CharField(max_length=10)
@@ -250,6 +226,7 @@ class MaharashtraMetadata(models.Model):
     class Meta:
         managed = False
         db_table = 'maharashtra_metadata'
+
 
     def __str__(self):
         return f"{self.village_name}, {self.district_name}, {self.state_name}"

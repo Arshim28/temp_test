@@ -95,6 +95,14 @@ WSGI_APPLICATION = "base.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'django',
+        'USER': 'django',
+        'PASSWORD': 'postgres',
+        'HOST': 'localhost',
+        'PORT': '5432',
+            },
+    'external_db':{
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'pilot',
         'USER': 'postgres',
         'PASSWORD': 'postgres',
@@ -155,11 +163,13 @@ SENDER_MAIL = EMAIL_HOST_USER
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 AUTH_USER_MODEL = "user_auth.CustomUser"
-
+DATABASE_ROUTERS = ["utils.routers.MultiDBRouter"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

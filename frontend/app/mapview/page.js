@@ -8,17 +8,21 @@ export default function MapView() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [layers, setLayers] = useState([]);
-  const [selectedLayer, setSelectedLayer] = useState(null);
-  const [loadedLayer, setLoadedLayer] = useState(null);
-  const metadataRef = useRef(null); // Use a ref for metadata
+  const [activeLayers, setActiveLayers] = useState([]);  // Store active layers
+  const [districts, setDistricts] = useState([]);
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const [showDistrictPopup, setShowDistrictPopup] = useState(false);
+  const metadataRef = useRef(null);
+  const [mapStyle, setMapStyle] = useState('base');
+  const [expandedSidebar, setExpandedSidebar] = useState(false);
 
+  // Fetch layers
   useEffect(() => {
     const fetchLayers = async () => {
       try {
         const response = await fetch('http://65.2.140.129:7800/index.json');
         if (!response.ok) throw new Error('Failed to fetch layers');
         const data = await response.json();
-        console.log('Fetched layers:', data);
         setLayers(Object.values(data));
       } catch (error) {
         console.error('Error fetching layers:', error);
@@ -27,10 +31,26 @@ export default function MapView() {
     fetchLayers();
   }, []);
 
+  // Fetch districts
   useEffect(() => {
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: {
+    const fetchDistricts = async () => {
+      try {
+        const response = await fetch('http://65.2.140.129:8000/api/maharashtra-hierarchy/');
+        if (!response.ok) throw new Error('Failed to fetch districts');
+        const data = await response.json();
+        const districtNames = data.map(district => district.name);
+        setDistricts(districtNames);
+      } catch (error) {
+        console.error('Error fetching districts:', error);
+      }
+    };
+    fetchDistricts();
+  }, []);
+
+  // Map style setup
+  useEffect(() => {
+    const mapStyles = {
+      base: {
         version: 8,
         sources: {
           'basemap': {
@@ -45,158 +65,207 @@ export default function MapView() {
           source: 'basemap'
         }]
       },
+      satellite: {
+        version: 8,
+        sources: {
+          'satellite': {
+            type: 'raster',
+            tiles: ['https://{a-c}.basemaps.cartocdn.com/rastertiles/satellite/{z}/{x}/{y}.png'],
+            tileSize: 256
+          }
+        },
+        layers: [{
+          id: 'satellite',
+          type: 'raster',
+          source: 'satellite'
+        }]
+      },
+      hybrid: {
+        version: 8,
+        sources: {
+          'hybrid': {
+            type: 'vector',
+            tiles: ['https://basemaps.arcgis.com/arcgis/rest/services/World_Basemap_v2/VectorTileServer/tile/{z}/{x}/{y}.pbf'],
+            minzoom: 0,
+            maxzoom: 16
+          }
+        },
+        layers: [{
+          id: 'hybrid-layer',
+          type: 'fill',
+          source: 'hybrid',
+          'source-layer': 'reference',
+          paint: {
+            'fill-color': '#0080FF',
+            'fill-opacity': 0.2,
+            'fill-outline-color': '#0000FF'
+          }
+        }, {
+          id: 'hybrid-line',
+          type: 'line',
+          source: 'hybrid',
+          'source-layer': 'reference',
+          paint: {
+            'line-color': '#0000FF',
+            'line-width': 2
+          }
+        }]
+      }
+    };
+
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: mapStyles[mapStyle],
       center: [75.7139, 21.0486],
       zoom: 12
     });
 
     mapRef.current = map;
     return () => map.remove();
-  }, []);
+  }, [mapStyle]);
 
-  const loadLayer = async () => {
-    if (!selectedLayer || !mapRef.current) return;
+  // Load a selected layer
+  const loadLayer = async (layer) => {
+    if (!mapRef.current) return;
     const map = mapRef.current;
 
-    // Remove the previously loaded layer if it exists
-    if (loadedLayer) {
-      map.removeLayer('coord-debug');
-      map.removeSource('dynamic-source');
-    }
+    // Add layer only if it's not already added
+    if (!activeLayers.find(activeLayer => activeLayer.id === layer.id)) {
+      try {
+        const response = await fetch(`http://65.2.140.129:7800/${layer.id}.json`);
+        if (!response.ok) throw new Error('Failed to fetch metadata');
+        const data = await response.json();
+        metadataRef.current = data;
+      } catch (error) {
+        console.error('Error fetching metadata:', error);
+        return;
+      }
 
-    // Fetch metadata for the selected layer
-    try {
-      const response = await fetch(`http://65.2.140.129:7800/${selectedLayer.id}.json`);
-      if (!response.ok) throw new Error('Failed to fetch metadata');
-      const data = await response.json();
-      const geometryType = data
-      console.log('Fetched metadata:', data);
-      metadataRef.current = data; // Update the ref with the latest metadata
-    } catch (error) {
-      console.error('Error fetching metadata:', error);
-      metadataRef.current = null; // Reset the ref if fetching fails
-    }
+      let geometryType = metadataRef.current?.geometrytype;
+      if (!geometryType) return;
 
-    let geometryType = metadataRef.current?.geometrytype;
-    if (!geometryType) {
-      console.error("Geometry type is missing from metadata.");
-      return;
-    }
+      let layerType, _paint = {};
 
-    let layerType, _paint = {};
-
-    if (geometryType === "Point" || geometryType === "MultiPoint") {
+      if (geometryType === "Point" || geometryType === "MultiPoint") {
         layerType = "circle";
         _paint = {
-            "circle-radius": 6,
-            "circle-color": "#ff0000"
+          "circle-radius": 6,
+          "circle-color": "#ff0000"
         };
-    } else if (geometryType === "LineString" || geometryType === "MultiLineString" || geometryType === "MultiCurve") {
+      } else if (geometryType === "LineString" || geometryType === "MultiLineString") {
         layerType = "line";
         _paint = {
-            "line-width": 2,
-            "line-color": "#0000ff"
+          "line-width": 2,
+          "line-color": "#0000ff"
         };
-    } else if (geometryType === "Polygon" || geometryType === "MultiPolygon" || geometryType === "Geometry") {
+      } else if (geometryType === "Polygon") {
         layerType = "fill";
         _paint = {
-            'fill-color': '#0080FF',
-            'fill-opacity': 0.2,
-            'fill-outline-color': '#0000FF'
+          'fill-color': '#0080FF',
+          'fill-opacity': 0.2,
+          'fill-outline-color': '#0000FF'
         };
-    } else {
-        console.error("Unsupported geometry type:", geometryType);
-        return;
+      }
+
+      map.addSource(layer.id, {
+        type: 'vector',
+        tiles: [`http://65.2.140.129:7800/${layer.id}/{z}/{x}/{y}.pbf`],
+        minzoom: 0,
+        maxzoom: 22
+      });
+
+      map.addLayer({
+        id: `layer-${layer.id}`,
+        type: layerType,
+        source: layer.id,
+        'source-layer': layer.id,
+        paint: _paint
+      });
+
+      setActiveLayers(prevState => [...prevState, layer]);  // Add the layer to active layers state
     }
-
-    // Add the new layer
-    map.addSource('dynamic-source', {
-      type: 'vector',
-      tiles: [`http://65.2.140.129:7800/${selectedLayer.id}/{z}/{x}/{y}.pbf`],
-      minzoom: 0,
-      maxzoom: 22
-    });
-
-    map.addLayer({
-      id: 'coord-debug',
-      type: layerType,
-      source: 'dynamic-source',
-      'source-layer': selectedLayer.id,
-      paint: _paint
-    });
-
-    // Add click event listener to show metadata in a popup
-    map.on('click', 'coord-debug', (e) => {
-      if (!metadataRef.current) {
-        console.error('Metadata not loaded');
-        return;
-      }
-
-      const features = map.queryRenderedFeatures(e.point, { layers: ['coord-debug'] });
-      if (features.length > 0) {
-        const feature = features[0];
-        const properties = feature.properties;
-
-        // Create a popup
-        new maplibregl.Popup()
-          .setLngLat(e.lngLat)
-          .setHTML(
-            `<div>
-              <h3>${selectedLayer.name}</h3>
-              <ul>
-                ${metadataRef.current.properties.map(prop => `
-                  <li><strong>${prop.name}</strong>: ${properties[prop.name] || 'N/A'}</li>
-                `).join('')}
-              </ul>
-            </div>`
-          )
-          .addTo(map);
-      }
-    });
-
-    // Change cursor to pointer when hovering over points
-    map.on('mouseenter', 'coord-debug', () => {
-      map.getCanvas().style.cursor = 'pointer';
-    });
-
-    // Change cursor back to default when not hovering over points
-    map.on('mouseleave', 'coord-debug', () => {
-      map.getCanvas().style.cursor = '';
-    });
-
-    setLoadedLayer(selectedLayer);
   };
 
-  const removeLayer = () => {
-    if (!mapRef.current || !loadedLayer) return;
+  // Remove selected layer
+  const removeLayer = (layer) => {
+    if (!mapRef.current) return;
     const map = mapRef.current;
 
-    // Remove the layer and source
-    map.removeLayer('coord-debug');
-    map.removeSource('dynamic-source');
+    // Remove the layer from map
+    map.removeLayer(`layer-${layer.id}`);
+    map.removeSource(layer.id);
 
-    // Remove event listeners
-    map.off('click', 'coord-debug');
-    map.off('mouseenter', 'coord-debug');
-    map.off('mouseleave', 'coord-debug');
+    // Remove layer from active layers state
+    setActiveLayers(prevState => prevState.filter(activeLayer => activeLayer.id !== layer.id));
+  };
 
-    // Reset the loaded layer state
-    setLoadedLayer(null);
-    metadataRef.current = null; // Reset the ref
+  // Handle layer click
+  const handleLayerClick = (layer) => {
+    loadLayer(layer);
+  };
+
+  // Handle layer double-click
+  const handleLayerDoubleClick = (layer) => {
+    removeLayer(layer);
+  };
+
+  // Handle remove layer button click
+  const handleRemoveLayerClick = (layer) => {
+    removeLayer(layer);
+  };
+
+  // Handle load layers click (expand sidebar)
+  const handleLoadLayersClick = () => {
+    setExpandedSidebar(true);
+    setShowDistrictPopup(true);
   };
 
   return (
     <div className="map-container">
-      <div className="controls">
-        <select onChange={(e) => setSelectedLayer(layers.find(layer => layer.id === e.target.value))}>
-          <option value="">Select a Layer</option>
-          {layers.map(layer => (
-            <option key={layer.id} value={layer.id}>{layer.name}</option>
-          ))}
-        </select>
-        <button onClick={loadLayer} disabled={!selectedLayer}>Load Layer</button>
-        <button onClick={removeLayer} disabled={!loadedLayer}>Remove Layer</button>
+      <div className={`sidebar ${expandedSidebar ? 'expanded' : ''}`}>
+        <button className="navbar-icon" onClick={handleLoadLayersClick}>
+          <span role="img" aria-label="layers">🗂️ Load Layers</span>
+        </button>
+
+        {showDistrictPopup && (
+          <div className="district-selector">
+            <h3 className="district-header">Select District</h3>
+            <select onChange={(e) => setSelectedDistrict(e.target.value)}>
+              <option value="">Select a District</option>
+              {districts.map(district => (
+                <option key={district} value={district}>{district}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {selectedDistrict && (
+          <div className="layers-list">
+            <h3 className="district-header">Select Layers</h3>
+            {layers.map(layer => (
+              <div
+                key={layer.id}
+                className={`layer-option ${activeLayers.some(activeLayer => activeLayer.id === layer.id) ? 'active' : ''}`}
+                onClick={() => handleLayerClick(layer)}
+                onDoubleClick={() => handleLayerDoubleClick(layer)}
+              >
+                {layer.name}
+                <button className="remove-layer" onClick={(e) => { e.stopPropagation(); handleRemoveLayerClick(layer); }}>
+                  ✖️
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button className="navbar-icon" onClick={() => alert('Download report functionality to be implemented')}>
+          <span role="img" aria-label="download">📥 Download Report</span>
+        </button>
       </div>
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100vh' }} />
+
+      <div className="map-wrapper">
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100vh' }} />
+      </div>
     </div>
   );
 }

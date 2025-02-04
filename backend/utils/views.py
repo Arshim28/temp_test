@@ -1,17 +1,14 @@
-
-from collections import defaultdict
-from cv2 import quality
 from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
-from .serializers import PlanSerializer, ReportPlanSerializer, TransactionSerializer, MaharashtraMetadataSerializer
-from .models import Plan, ReportTransaction, Transaction, ReportPlan, ALLOWED_TRANSACTIONS, MaharashtraMetadata
+from .serializers import PlanSerializer, TransactionSerializer, MaharashtraMetadataSerializer
+from .models import Plan, Transaction, ALLOWED_TRANSACTIONS, MaharashtraMetadata    
 from django.http import HttpResponse, JsonResponse
-from django.db import transaction
+from django.views import View
 from land_value.data_manager import *
 try:
     from terra_utils import Config
@@ -19,69 +16,14 @@ try:
 except Exception as e:
     print(e)
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def create_plan(request):
-    user = request.user
-    request.data['user'] = user.id
-    serializer = PlanSerializer(data=request.data)
-
-    if serializer.is_valid():
-        plan_type = serializer.validated_data.get("plan_type")
-        entity_name = serializer.validated_data.get("entity_name")
-
-        print(plan_type, entity_name)
-
-        # Validate entity_name based on plan_type
-        entity_field_mapping = {
-            "District": "district_name",
-            "Taluka": "taluka_name",
-            "Village": "village_name",
-        }
-
-        if plan_type not in entity_field_mapping:
-            return Response({"plan_type": "Invalid plan type provided."}, status=400)
-
-        filter_kwargs = {entity_field_mapping[plan_type]: entity_name}
-        if not MaharashtraMetadata.objects.filter(**filter_kwargs).exists():
-            return Response(
-                {
-                    "entity_name": f"The specified entity '{entity_name}' does not exist in the database for the plan type '{plan_type}'."
-                },
-                status=400,
-            )
-
-        serializer.save(user=user)
-        return Response(serializer.data, status=201)
-
-    print(serializer.errors)
-    return Response(serializer.errors, status=400)
-
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def create_report_plan(request):
-    user = request.user
-    request.data['user'] = user.id
-    quantity = request.data.get("quantity")
-    serializer = ReportPlanSerializer(data=request.data)
-
-    if serializer.is_valid():
-        serializer.save(user=user)
-        return Response(serializer.data, status=201)
-
-    return Response(serializer.errors, status=400)
-
-
-class ListReportPlansView(ListAPIView):
-    serializer_class = ReportPlanSerializer
+class CreatePlanView(CreateAPIView):
+    queryset = Plan.objects.all()
+    serializer_class = PlanSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return ReportPlan.objects.filter(user=self.request.user)
-
-
+    def perform_create(self, serializer):
+        # Automatically associate the order with the authenticated user
+        serializer.save(user=self.request.user)
 
 
 class ListPlansView(ListAPIView):
@@ -100,17 +42,8 @@ class RetrievePlanView(RetrieveAPIView):
     def get_queryset(self):
         return Plan.objects.filter(user=self.request.user)
 
-class RetrieveReportPlanView(RetrieveAPIView):
-    queryset = ReportPlan.objects.all()
-    serializer_class = ReportPlanSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return ReportPlan.objects.filter(user=self.request.user)
-
 
 class CreateTransactionView(CreateAPIView):
-    # NOTE: Shouldn't be necessary as get_report creates the transactions
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
@@ -178,11 +111,28 @@ class MaharashtraMetadataList(APIView):
         if village:
             filters['village_name'] = village
 
-        data = MaharashtraMetadata.objects.filter(**filters)
+        data = MaharashtraMetadata.objects.filter(**filters)  
         serializer = MaharashtraMetadataSerializer(data, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class KhataNumbersView(View):
+    def get(self, request):
+        district = request.GET.get('district')
+        taluka_name = request.GET.get('taluka_name')
+        village_name = request.GET.get('village_name')
 
+        if not all([district, taluka_name, village_name]):
+            return JsonResponse({'error': 'Missing required parameters: district, taluka_name, village_name'}, status=400)
+
+        try:
+            all_manager_obj = all_manager()
+            data_manager = all_manager_obj.textual_data_manager()
+
+            khata_numbers = data_manager.get_khata_from_village(district, taluka_name, village_name)
+            return JsonResponse({'khata_numbers': khata_numbers})
+        except Exception as e:
+
+            return JsonResponse({'error': str(e)}, status=500)
 
 def maharashtra_hierarchy(request):
     entries = MaharashtraMetadata.objects.all().values(
@@ -234,111 +184,73 @@ def maharashtra_hierarchy(request):
 def report_gen(request):
     """Generates report for a single entity"""
     user = request.user
-
+    print(user)
+    
     state = request.query_params.get("state")
     district = request.query_params.get("district")
     taluka = request.query_params.get("taluka")
     village = request.query_params.get("village")
     survey_no = request.query_params.get("survey_no")
-
+    
 
     if not state or not district or not taluka or not village or  survey_no is None:
         print(state, district, taluka, village, survey_no)
         return Response({"detail": "Invalid query params"}, status=status.HTTP_400_BAD_REQUEST)
-
+    
     state = state.lower()
     district = district.lower()
     taluka = taluka.lower()
     village = village.lower()
-    survey_no = int(survey_no)
+    survey_no = survey_no
 
     all_manager_obj = all_manager()
-    pdf = all_manager_obj.get_plot_pdf_by_khata(state=state, district=district, taluka=taluka, village=village, khata_no=survey_no)
-    response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{survey_no}_plot.pdf"'
+    pdf = all_manager_obj.get_plot_pdf_by_khata(state, district, taluka, village, survey_no)
+    print(pdf)
 
 
-
-    return response
-
+    return HttpResponse(pdf, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def report_gen3(request):
-    """Generates report for a single entity with access validation and transaction tracking"""
+def report_gen2(request):
+    """Generates report for a single entity"""
     if request.method == "GET":
         user = request.user
-
-
-        state = request.query_params.get("state")
-        district = request.query_params.get("district")
-        taluka = request.query_params.get("taluka")
-        village = request.query_params.get("village")
-        survey_no = request.query_params.get("survey_no")
-
         plans = user.plans.all()
-
-
+        tallukas = []
+        villages = []
+        districts = []
         for p in plans:
-            if not p.is_valid:
-                plans.remove(p)
+            if p.is_valid:
+                if p.plan_type == "Talluka":
+                    tallukas.append(p.entity)
+                elif p.plan_type == "Village":
+                    villages.append(p.entity)
+                elif p.plan_type == "District":
+                    villages.append(p.entity)
+                    
 
-        # If no valid plans, return error
-        if not plans:
-            return Response(
-                {"detail": "No valid plans found for the user"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if len(plans) == 0:
+            return Response({"detail": "No valid plans found for the user"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            state = request.query_params.get("state")
+            district = request.query_params.get("district")
+            taluka = request.query_params.get("taluka")
+            village = request.query_params.get("village")
+            survey_no = request.query_params.get("survey_no")
 
-
-        if not state or not district or not taluka or not village or  survey_no is None:
-            print(state, district, taluka, village, survey_no)
+        except ValueError:
             return Response({"detail": "Invalid query params"}, status=status.HTTP_400_BAD_REQUEST)
-
-        state = state.lower()
-        district = district.lower()
-        taluka = taluka.lower()
-        village = village.lower()
-        survey_no = int(survey_no)
-
+        
+        if tallukas not in tallukas:
+            if district not in districts:
+                if village not in villages:
+                    return Response({"detail": "Invalid query params"}, status=status.HTTP_400_BAD_REQUEST)
+                
+        
         all_manager_obj = all_manager()
+
         pdf = all_manager_obj.get_plot_pdf(state, district, taluka, village, survey_no)
+        return Response(pdf, status=status.HTTP_200_OK)
 
 
-        response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{survey_no}_plot.pdf"'
-
-
-        transaction = ReportTransaction.objects.create(user=request.user, plan=plans[0])
-
-        return response
-
-
-
-
-
-
-@api_view(["GET"])
-def get_metadata(request):
-    """Get all metadata in district -> taluka -> village format"""
-
-    # Fetch metadata
-    metadata = MaharashtraMetadata.objects.all().values("district_name", "taluka_name", "village_name")
-
-    # Initialize a defaultdict to structure the data
-    result = defaultdict(lambda: defaultdict(list))
-
-    # Loop through the metadata and organize it
-    for record in metadata:
-        district = record['district_name']
-        taluka = record['taluka_name']
-        village = record['village_name']
-
-        # Populate the nested dictionary
-        result[district][taluka].append(village)
-
-    # Convert defaultdict to a normal dictionary
-    result_dict = {district: dict(talukas) for district, talukas in result.items()}
-
-    return Response(result_dict, status=status.HTTP_200_OK)

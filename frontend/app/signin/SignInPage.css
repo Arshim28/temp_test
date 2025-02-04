@@ -123,25 +123,43 @@
     cursor: not-allowed;
 }
 
-/* OTP Popup */
+/* OTP Success Message */
+.otp-success {
+    font-size: 16px;
+    color: #22c55e;
+    /* Green color for success */
+    font-weight: 600;
+    padding: 10px 0;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Updated OTP Popup to fit success message */
 .otp-popup {
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     background: #ffffff;
-    padding: 25px;
+    padding: 30px;
+    /* Increased padding */
     border-radius: 12px;
     box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.2);
     text-align: center;
-    width: 320px;
+    width: 350px;
+    /* Increased width slightly */
+    min-height: 180px;
+    /* Ensures space for the message */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     z-index: 1000;
     animation: fadeIn 0.3s ease-in-out;
 }
 
 /* OTP Input */
 .otp-input {
-    width: 100%;
+    width: 90%;
     padding: 12px;
     font-size: 18px;
     border-radius: 8px;

@@ -1,8 +1,9 @@
 from django.contrib import admin
 from django import forms
+from django.contrib.admin import ModelAdmin
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from django.contrib.auth.admin import UserAdmin
-from user_auth.models import CustomUser
+from user_auth.models import CustomUser, UserProfile
 from django.contrib.admin.sites import AdminSite
 from django.contrib.admin.forms import AuthenticationForm
 from django.contrib.admin import SimpleListFilter
@@ -121,27 +122,10 @@ class CustomUserAdmin(UserAdmin):
     ordering = ["email"]
 
 
-# user_admin_site = UserAdminSite(name="user_admin")
-#  user_admin_site.disable_action("delete_selected")
+class UserProfileAdmin(ModelAdmin):
+    list_display = ["user", "login_as", "user_type"]
+    search_fields = ["user__email", "user_type"]
+    list_filter = ["user_type", "login_as"]
 
-
+admin.site.register(UserProfile, UserProfileAdmin)
 admin.site.register(CustomUser, CustomUserAdmin)
-
-
-# class UserAdminSite(AdminSite):
-#     login_form = AuthenticationForm
-#     site_title = "Terra Home"
-#     site_title = "Terra Home"
-#     index_title = "Welcome to Terra Home Admin"
-#
-#     def has_permission(self, request):
-#
-#         return request.user.is_active
-#
-#     #
-#     # def get_app_list(self, request):
-#     #     app_dict = self._build_app_dict(request)  # Build the app dictionary
-#     #     app_list = sorted(app_dict.values(), key=lambda x: x["name"].lower())
-#     #     for app in app_list:
-#     #         app["models"] = sorted(app["models"], key=lambda x: x["name"])
-#     #     return app_list

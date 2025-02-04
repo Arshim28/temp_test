@@ -1,7 +1,9 @@
 import uuid
 import logging
+
 from django.utils.timezone import now
 from django.utils import timezone
+from django.db import transaction
 
 from rest_framework import status
 from rest_framework.throttling import AnonRateThrottle
@@ -12,7 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 
 from .renderers import UserJSONRenderer
-from .models import OTPVerification
+from .models import CustomUser, OTPVerification
 from .serializers import RegistrationSerializer, LoginSerializer, UserSerializer, ProfileSerializer
 from .helpers import send_otp, generate_otp
 
@@ -43,21 +45,28 @@ class RegistrationAPIView(APIView):
         try:
             otp_entry = OTPVerification.objects.get(email=email, is_verified=True, verification_token=verification_token)
 
-            # Proceed with user registration
-            serializer = self.serializer_class(data=user_data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+            with transaction.atomic():  # Ensures all DB operations succeed together
+                # Proceed with user registration
+                serializer = self.serializer_class(data=user_data)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
 
-            profile_data = request.data.get("profile", {})
-            profile_data["user"] = serializer.data["id"]
-            profile_serializer = ProfileSerializer(data=profile_data)
-            profile_serializer.is_valid(raise_exception=True)
-            profile_serializer.save()
+                profile_data = user_data["profile"]
+                logger.info(request.data)
+                profile_data["user"] = CustomUser.objects.get(email=email).id
+                profile_serializer = ProfileSerializer(data=profile_data)
+                profile_serializer.is_valid(raise_exception=True)
+                profile_serializer.save()
 
-            # Delete OTP entry after successful registration
-            OTPVerification.objects.filter(email=email).delete()
+                # Delete OTP entry after successful registration
+                OTPVerification.objects.filter(email=email).delete()
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except OTPVerification.DoesNotExist:
+            return Response({"error": "Invalid OTP verification."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         except OTPVerification.DoesNotExist:
             print("error: Invalid or expired verification token")
@@ -74,17 +83,14 @@ class LoginAPIView(APIView):
     def post(self, request):
         user = request.data.get("user", {})
 
-        print("HERE")
-
         serializer = self.serializer_class(data=user)
         logger.debug(f"Serialized Data: {serializer.initial_data}")
         if serializer.is_valid():
             response = serializer.data
             return Response(response, status=status.HTTP_200_OK)
-        else:
-            print(serializer.errors)
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        logger.error(serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_200_OK)
 
 
 class UserRetrieveUpdateAPIView(RetrieveUpdateAPIView):
@@ -131,7 +137,6 @@ def account_details(request):
         }
 
         return Response(status=status.HTTP_200_OK)
-
 
 
 

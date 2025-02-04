@@ -1,9 +1,11 @@
+/* Existing styles */
 .map-container {
   position: relative;
   width: 100%;
   height: 100vh;
 }
 
+/* Controls section */
 .controls {
   position: absolute;
   top: 20px;
@@ -27,14 +29,12 @@ button {
   cursor: pointer;
   transition: all 0.3s ease-in-out;
   color: #333;
-  /* Add text color to ensure visibility */
 }
 
 select:hover,
 button:hover {
   border-color: #007BFF;
   color: #007BFF;
-  /* Change text color on hover for better feedback */
 }
 
 select:focus,
@@ -43,7 +43,6 @@ button:focus {
   border-color: #007BFF;
   box-shadow: 0px 0px 8px rgba(0, 123, 255, 0.5);
   color: #007BFF;
-  /* Ensure text color is visible on focus */
 }
 
 button:disabled {
@@ -52,12 +51,318 @@ button:disabled {
   border-color: #ccc;
   background-color: #f9f9f9;
   color: #666;
-  /* Set a darker text color for disabled buttons */
 }
 
 button:disabled:hover {
   border-color: #ccc;
   box-shadow: none;
   color: #666;
-  /* Ensure text color remains visible on hover for disabled buttons */
+}
+
+/* Sidebar Container */
+.sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 250px;
+  /* Default width for narrow sidebar */
+  height: 100vh;
+  background-color: #f0e3e3;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  padding: 10px 5px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  justify-content: flex-start;
+  align-items: center;
+  overflow: hidden;
+  /* Hide overflow */
+  transition: width 0.3s ease-in-out;
+  /* Smooth transition when resizing */
+}
+
+/* Expanded Sidebar when district dropdown appears */
+.sidebar.expanded {
+  width: 300px;
+  /* Wider when district dropdown is visible */
+}
+
+/* Navbar Items */
+.navbar-icon {
+  background: none;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  text-align: center;
+}
+
+.navbar-icon span {
+  font-size: 20px;
+}
+
+.navbar-icon div {
+  font-size: 12px;
+  margin-top: 4px;
+  color: white;
+}
+
+.navbar-icon:hover {
+  background-color: #333;
+  color: #007BFF;
+}
+
+.navbar-icon:focus {
+  outline: none;
+  box-shadow: 0px 0px 8px rgba(0, 123, 255, 0.5);
+}
+
+.district-selector {
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  color: #d4cdcd;
+}
+
+.district-header {
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  color: #fffcfc;
+  margin-left: 10px;
+}
+
+/* Layer List - Make this scrollable */
+.layers-list {
+  margin-top: 20px;
+  max-height: 60vh;
+  /* Limit height so it stays within the map container */
+  overflow-y: auto;
+  /* Make it scrollable */
+  width: 100%;
+  padding-right: 10px;
+  /* Ensure scrollbar is visible */
+}
+
+/* Map Container Style Adjustments */
+.map-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100vh;
+}
+
+.map-wrapper {
+  flex-grow: 1;
+  padding-left: 50px;
+  height: 100%;
+}
+
+/* Adjust Sidebar for Mobile and Small Screens */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+    /* Narrower for smaller screens */
+  }
+
+  .sidebar.expanded {
+    width: 80%;
+    /* Expand to 80% on mobile when the dropdown is visible */
+  }
+
+  .map-wrapper {
+    padding-left: 60px;
+    /* Adjust padding when sidebar is narrow */
+  }
+}
+
+/* Highlight active layers in the sidebar */
+.layer-option.active {
+  background-color: #007BFF;
+  color: white;
+  font-weight: bold;
+}
+
+/* Style for Remove Layer button */
+.remove-layer {
+  background: none;
+  border: none;
+  color: red;
+  font-size: 18px;
+  cursor: pointer;
+  transition: color 0.3s ease-in-out;
+  margin-left: 10px;
+}
+
+.remove-layer:hover {
+  color: #ff4d4d;
+}
+
+/* Styling the scrollbar for better appearance */
+.layers-list {
+  margin-top: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+  width: 100%;
+  padding-right: 10px;
+  /* Ensure scrollbar is visible */
+}
+
+/* Customize the scrollbar */
+.layers-list::-webkit-scrollbar {
+  width: 12px;
+  /* Width of the scrollbar */
+  height: 12px;
+  /* Height of the horizontal scrollbar */
+}
+
+.layers-list::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+  /* Light background color of the track */
+  border-radius: 10px;
+}
+
+.layers-list::-webkit-scrollbar-thumb {
+  background-color: #888;
+  /* Color of the scrollbar thumb */
+  border-radius: 10px;
+  border: 3px solid #f1f1f1;
+  /* Border around the thumb for separation */
+  transition: background-color 0.3s ease;
+  /* Smooth hover effect */
+}
+
+.layers-list::-webkit-scrollbar-thumb:hover {
+  background-color: #555;
+  /* Darker thumb color on hover */
+}
+
+.layers-list::-webkit-scrollbar-button {
+  background-color: transparent;
+}
+
+.layers-list::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+/* Style for Layer Option (Button-like) */
+.layer-option {
+  background-color: white;
+  color: black;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease-in-out;
+  border: 1px solid #ccc;
+}
+
+.layer-option:hover {
+  background-color: #f0f0f0;
+}
+
+/* Only show the cross when the layer is active */
+.layer-option .remove-layer {
+  display: none;
+  /* Hide by default */
+}
+
+/* When the layer is selected (active), show the cross */
+.layer-option.active .remove-layer {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: red;
+  font-size: 18px;
+  cursor: pointer;
+  transition: color 0.3s ease-in-out;
+}
+
+.layer-option .remove-layer:hover {
+  color: #ff4d4d;
+}
+
+/* Highlight active layers in the sidebar */
+.layer-option.active {
+  background-color: #007BFF;
+  color: white;
+  font-weight: bold;
+}
+
+/* Adjust for the rest of the sidebar */
+.sidebar {
+  /* Retain your existing sidebar styles */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background-color: #3e3838;
+  padding: 10px 5px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  justify-content: flex-start;
+  align-items: center;
+  overflow: hidden;
+  transition: width 0.3s ease-in-out;
+}
+
+/* Adjust the popup as needed */
+.popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.popup-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  max-width: 90%;
+  text-align: center;
+}
+
+.popup-content h3 {
+  margin-bottom: 20px;
+  font-size: 18px;
+  color: #333;
+}
+
+.popup-content select {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.popup-content button {
+  width: 100%;
+  background-color: #007BFF;
+  color: white;
+  border: none;
+}
+
+.popup-content button:hover {
+  background-color: #0056b3;
 }
