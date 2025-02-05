@@ -196,19 +196,8 @@ class Transaction(models.Model):
     class Meta:
         ordering = ["created_at"]
 
-<<<<<<< HEAD
-
-
-
-
-
-=======
->>>>>>> restore-a81f709
 
 class MaharashtraMetadata(models.Model):
-    """Model for Maharashtra Metadata
-    Note: always use using('external_db') to access this model.
-    """
     ogc_fid = models.AutoField(primary_key=True)
     sid = models.IntegerField()
     state_code = models.CharField(max_length=10)
@@ -228,7 +217,6 @@ class MaharashtraMetadata(models.Model):
     class Meta:
         managed = False
         db_table = 'maharashtra_metadata'
-
 
     def __str__(self):
         return f"{self.village_name}, {self.district_name}, {self.state_name}"

@@ -49,7 +49,7 @@ export default function Dashboard() {
 
     const handleAllPlansClick = async () => {
         try {
-            const plansResponse = await axios.get('http://65.2.140.129:8000/api/maharashtra-md/', {
+            const plansResponse = await axios.get('http://65.2.140.129:8000/api/maharashtra_metadata/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setAllPlans(plansResponse.data);

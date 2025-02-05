@@ -3,7 +3,6 @@ from shapely.lib import is_valid
 from utils.models import (
     Plan,
     Transaction,
-
     MaharashtraMetadata,
     ReportPlan,
     ReportTransaction
@@ -73,13 +72,6 @@ class TransactionSerializer(ModelSerializer):
         model = Transaction
         fields = ["id", "created_at", "updated_at", "plan", "details"]
         read_only_fields = ["id", "created_at", "updated_at"]
-
-
-
-
-
-
-
 
 
 

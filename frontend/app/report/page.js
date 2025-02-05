@@ -5,8 +5,6 @@ import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import axios from 'axios';
-import LoadingScreen from '../loader/page';
-
 
 export default function ReportPage() {
     const [filters, setFilters] = useState({
@@ -22,7 +20,6 @@ export default function ReportPage() {
     const [reports, setReports] = useState([]);
     const [hierarchy, setHierarchy] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isSearchingLatLong, setIsSearchingLatLong] = useState(false); // Track if user searched by lat/long
 
     useEffect(() => {
         const fetchData = async () => {
@@ -61,42 +58,6 @@ export default function ReportPage() {
         return true;
     });
 
-    const searchByLatLong = async () => {
-        const latLongInput = filters.longitude;
-        const latLongParts = latLongInput.split(',').map(part => part.trim());
-
-        if (latLongParts.length !== 2 || isNaN(latLongParts[0]) || isNaN(latLongParts[1])) {
-            alert('Please enter a valid Latitude and Longitude in the format: "latitude,longitude"');
-            return;
-        }
-
-        setIsSearchingLatLong(true); // Mark that lat/long search has occurred
-        const lat = latLongParts[0];
-        const long = latLongParts[1];
-
-        try {
-            const params = new URLSearchParams({
-                lat: lat,
-                lng: long,
-            });
-
-            const response = await fetch(`http://65.2.140.129:8000/api/plot/?${params}`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('Search Results:', data);
-            // Handle the response and update the UI as necessary
-            setReports(data); // Assuming the API returns the reports based on the lat/long search
-
-        } catch (error) {
-            console.error('Error searching by Latitude and Longitude:', error);
-            alert('Failed to search by Latitude and Longitude. Please try again.');
-        }
-    };
-
     const downloadReportPDF = async (report) => {
         try {
             const params = new URLSearchParams({
@@ -108,7 +69,7 @@ export default function ReportPage() {
             });
 
             const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`);
-
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -121,6 +82,33 @@ export default function ReportPage() {
         }
     };
 
+    const downloadAllReportsAsZip = async () => {
+        const zip = new JSZip();
+        const downloadPromises = filteredReports.map(async (report) => {
+            try {
+                const params = new URLSearchParams({
+                    state: 'maharashtra',
+                    district: report.district_name,
+                    taluka: report.taluka_name,
+                    village: report.village_name,
+                    survey_no: filters.surveyNumber || report.survey_number // Use the user-provided survey number if available
+                });
+
+                const response = await fetch(`http://65.2.140.129:8000/report-gen/?${params}`);
+                if (!response.ok) throw new Error(`Failed to fetch ${report.khata_number}`);
+                const blob = await response.blob();
+                zip.file(`Report_${report.khata_number}.pdf`, blob);
+            } catch (error) {
+                console.error(`Error fetching report ${report.khata_number}:`, error);
+            }
+        });
+
+        await Promise.all(downloadPromises);
+        zip.generateAsync({ type: 'blob' }).then((content) => {
+            saveAs(content, 'All_Reports.zip');
+        });
+    };
+
     const downloadReportBySurveyNumber = async () => {
         if (!filters.surveyNumber) {
             alert("Please enter a valid survey number.");
@@ -128,8 +116,9 @@ export default function ReportPage() {
         }
 
         try {
+            // Add additional parameters (district, taluka, village, state)
             const params = new URLSearchParams({
-                state: 'maharashtra',
+                state: 'maharashtra', // Assuming all reports are from Maharashtra
                 district: filters.district.toLowerCase(),
                 taluka: filters.taluka.toLowerCase(),
                 village: filters.village.toLowerCase(),
@@ -137,7 +126,7 @@ export default function ReportPage() {
             });
 
             const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`);
-
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -151,9 +140,8 @@ export default function ReportPage() {
     };
 
     if (loading) {
-        return <LoadingScreen />;
+        return <div>Loading...</div>;
     }
-
 
     const reportTypes = ["Type 1", "Type 2", "Type 3"];
     const selectedDistrict = hierarchy.find(d => d.name === filters.district);
@@ -168,7 +156,10 @@ export default function ReportPage() {
             <div className="filter-section">
                 <h2 className="filter-heading">Filter Reports</h2>
                 <div className="filters-container">
-                    <select className="dropdown" onChange={(e) => handleFilterChange('state', e.target.value)}>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('state', e.target.value)}
+                    >
                         <option value="">Select State</option>
                         <option value="Maharashtra">Maharashtra</option>
                         <option value="Gujarat">Gujarat</option>
@@ -176,74 +167,100 @@ export default function ReportPage() {
                         <option value="Karnataka">Karnataka</option>
                     </select>
 
-                    <select className="dropdown" onChange={(e) => handleFilterChange('district', e.target.value)}>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('district', e.target.value)}
+                    >
                         <option value="">Select District</option>
                         {hierarchy.map(district => (
-                            <option key={district.code} value={district.name}>{district.name}</option>
+                            <option key={district.code} value={district.name}>
+                                {district.name}
+                            </option>
                         ))}
                     </select>
 
-                    <select className="dropdown" onChange={(e) => handleFilterChange('taluka', e.target.value)} disabled={!filters.district}>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('taluka', e.target.value)}
+                        disabled={!filters.district}
+                    >
                         <option value="">Select Taluka</option>
                         {selectedDistrict?.talukas?.map(taluka => (
-                            <option key={taluka.code} value={taluka.name}>{taluka.name}</option>
+                            <option key={taluka.code} value={taluka.name}>
+                                {taluka.name}
+                            </option>
                         ))}
                     </select>
 
-                    <select className="dropdown" onChange={(e) => handleFilterChange('village', e.target.value)} disabled={!filters.taluka}>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('village', e.target.value)}
+                        disabled={!filters.taluka}
+                    >
                         <option value="">Select Village</option>
                         {selectedTaluka?.villages?.map(village => (
-                            <option key={village.code} value={village.name}>{village.name}</option>
+                            <option key={village.code} value={village.name}>
+                                {village.name}
+                            </option>
                         ))}
                     </select>
 
-                    <select className="dropdown" onChange={(e) => handleFilterChange('reportType', e.target.value)}>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('reportType', e.target.value)}
+                    >
                         <option value="">Select Report Type</option>
                         {reportTypes.map((type, index) => (
-                            <option key={index} value={type}>{type}</option>
-                        ))}
-                    </select>
-                    <select className="dropdown" onChange={(e) => handleFilterChange('village', e.target.value)} disabled={!filters.taluka}>
-                        <option value="">Select Khata Number</option>
-                        {selectedTaluka?.villages?.map(village => (
-                            <option key={village.code} value={village.name}>{village.name}</option>
+                            <option key={index} value={type}>
+                                {type}
+                            </option>
                         ))}
                     </select>
 
-                    {/* <input
-                        type="text"
-                        className="survey-number-input"
-                        placeholder="Enter Khata Number"
-                        value={filters.surveyNumber}
-                        onChange={(e) => handleFilterChange('surveyNumber', e.target.value)}
-                    /> */}
-                </div>
+                    <select
+                        className="dropdown"
+                        onChange={(e) => handleFilterChange('ownerName', e.target.value)}
+                    >
+                        <option value="">Select Owner Name</option>
+                        {reports.map((report, index) => (
+                            <option key={index} value={report.owner_names}>
+                                {report.owner_names}
+                            </option>
+                        ))}
+                    </select>
 
-                <div className="download-section">
-                    <button className="download-button" onClick={downloadReportBySurveyNumber}>Download Report by Khata Number</button>
-                </div>
-
-                <div className="text-center" style={{ marginTop: "15px", fontSize: "16px" }}>
-                    <p>OR</p>
-                </div>
-
-                <div className="search-lat-long-container">
+                    {/* Added survey number input field */}
                     <input
                         type="text"
-                        className="search-lat-long-bar"
-                        placeholder="Eg. 18.9750° N, 72.8233° E"
-                        value={filters.longitude}
-                        onChange={(e) => handleFilterChange('longitude', e.target.value)}
+                        className="survey-number-input"
+                        placeholder="Enter Survey Number"
+                        value={filters.surveyNumber}
+                        onChange={(e) => handleFilterChange('surveyNumber', e.target.value)}
                     />
-                    <button className="search-button-lat-long" onClick={searchByLatLong}>
-                        Search by Latitude and Longitude
+
+                    {/* Added Download Button */}
+                    <button
+                        className="download-button"
+                        onClick={downloadReportBySurveyNumber}
+                    >
+                        Download Report by Survey Number
                     </button>
                 </div>
             </div>
 
             <div className="content-section">
-                {isSearchingLatLong ? (
+                {filters.district === '' ? (
+                    <div className="placeholder-content">
+                        {/* Placeholder content */}
+                    </div>
+                ) : (
                     <div className="report-list">
+                        <button
+                            className="download-all-button"
+                            onClick={downloadAllReportsAsZip}
+                        >
+                            Download All ({filteredReports.length})
+                        </button>
                         {filteredReports.map((report, index) => (
                             <div key={index} className="report-card-row">
                                 <div>
@@ -252,37 +269,14 @@ export default function ReportPage() {
                                     <p>Village Name: {report.village_name}</p>
                                     <p>Owner Name(s): {report.owner_names}</p>
                                 </div>
-                                <button className="download-button" onClick={() => downloadReportPDF(report)}>
+                                <button
+                                    className="download-button"
+                                    onClick={() => downloadReportPDF(report)}
+                                >
                                     Download Report
                                 </button>
                             </div>
                         ))}
-                    </div>
-                ) : (
-                    <div className="placeholder-content">
-                        <div className="placeholder-images">
-                            <div className="image-description-container">
-                                <img
-                                    src="/india.jpeg"
-                                    alt="Placeholder 1"
-                                    className="placeholder-image"
-                                />
-                                <p className="image-description">
-                                    6 districts covered across MH, Rajasthan, Telangana so far,
-                                    and rapidly expanding.
-                                </p>
-                            </div>
-                            <div className="image-description-container">
-                                <img
-                                    src="/report.png"
-                                    alt="Placeholder 2"
-                                    className="placeholder-image"
-                                />
-                                <p className="image-description">
-                                    A sample valuation report - generated for an arbitrary khata number.
-                                </p>
-                            </div>
-                        </div>
                     </div>
                 )}
             </div>
