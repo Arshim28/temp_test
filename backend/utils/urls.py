@@ -13,7 +13,8 @@ from .views import (
     report_gen3,
     MaharashtraMetadataList,
     maharashtra_hierarchy,
-    get_metadata
+    KhataNumbersView,
+    get_plot_by_lat_lng
 )
 
 urlpatterns = [
@@ -50,6 +51,7 @@ urlpatterns = [
         'maharashtra_metadata/', MaharashtraMetadataList.as_view(), name='maharashtra_metadata_list'
     ),
     path('maharashtra-hierarchy/', maharashtra_hierarchy, name='maharashtra_hierarchy'),
-    path('maharashtra-md/', get_metadata, name='get_metadata')
+    path('khata-numbers/', KhataNumbersView.as_view(), name='khata_numbers'),
+    path('plot/', get_plot_by_lat_lng, name='get_plot_by_lat_lng')
 
 ]

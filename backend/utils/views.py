@@ -1,18 +1,24 @@
 
 from collections import defaultdict
-from cv2 import quality
+
+from django.http import HttpResponse, JsonResponse
+
 from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
+from rest_framework.views import APIView, View
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from shapely import coordinates
+
+
 from .serializers import PlanSerializer, ReportPlanSerializer, TransactionSerializer, MaharashtraMetadataSerializer
 from .models import Plan, ReportTransaction, Transaction, ReportPlan, ALLOWED_TRANSACTIONS, MaharashtraMetadata
-from django.http import HttpResponse, JsonResponse
-from django.db import transaction
-from land_value.data_manager import *
+from .helpers import get_metadata_state
+
+from land_value.data_manager import all_manager
+
 try:
     from terra_utils import Config
     config = Config('/home/ubuntu/terraview-django/backend/submodules/land_value/config')
@@ -64,7 +70,7 @@ def create_plan(request):
 def create_report_plan(request):
     user = request.user
     request.data['user'] = user.id
-    quantity = request.data.get("quantity")
+    quantity = request.data.get("quantity") # FIXME: Maybe add a condition later on for a fixed no. of quantities to allow.
     serializer = ReportPlanSerializer(data=request.data)
 
     if serializer.is_valid():
@@ -81,6 +87,24 @@ class ListReportPlansView(ListAPIView):
     def get_queryset(self):
         return ReportPlan.objects.filter(user=self.request.user)
 
+class KhataNumbersView(View):
+    def get(self, request):
+        district = request.GET.get('district')
+        taluka_name = request.GET.get('taluka_name')
+        village_name = request.GET.get('village_name')
+
+        if not all([district, taluka_name, village_name]):
+            return JsonResponse({'error': 'Missing required parameters: district, taluka_name, village_name'}, status=400)
+
+        try:
+            all_manager_obj = all_manager()
+            data_manager = all_manager_obj.textual_data_manager()
+
+            khata_numbers = data_manager.get_khata_from_village(district, taluka_name, village_name)
+            return JsonResponse({'khata_numbers': khata_numbers})
+        except Exception as e:
+
+            return JsonResponse({'error': str(e)}, status=500)
 
 
 
@@ -178,57 +202,18 @@ class MaharashtraMetadataList(APIView):
         if village:
             filters['village_name'] = village
 
-        data = MaharashtraMetadata.objects.filter(**filters)
+        data = MaharashtraMetadata.objects.using('external_db').filter(**filters)
         serializer = MaharashtraMetadataSerializer(data, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
+@api_view(["GET"])
 def maharashtra_hierarchy(request):
-    entries = MaharashtraMetadata.objects.all().values(
-        'district_code', 'district_name',
-        'taluka_code', 'taluka_name',
-        'village_code', 'village_name'
-    ).order_by('district_name', 'taluka_name', 'village_name')
+    request_params = request.GET
+    hierarchy = get_metadata_state(request_params)
+    return JsonResponse(hierarchy, status=200, safe=False)
 
-    hierarchy = {}
-    for entry in entries:
-        d_code = entry['district_code']
-        d_name = entry['district_name']
-        t_code = entry['taluka_code']
-        t_name = entry['taluka_name']
-        v_code = entry['village_code']
-        v_name = entry['village_name']
 
-        district = hierarchy.setdefault(d_code, {
-            'code': d_code,
-            'name': d_name,
-            'talukas': {}
-        })
-
-        taluka = district['talukas'].setdefault(t_code, {
-            'code': t_code,
-            'name': t_name,
-            'villages': []
-        })
-
-        taluka['villages'].append({'code': v_code, 'name': v_name})
-
-    result = []
-    for district in hierarchy.values():
-        talukas = list(district['talukas'].values())
-        for taluka in talukas:
-            taluka['villages'].sort(key=lambda v: v['name'])
-        talukas.sort(key=lambda t: t['name'])
-        result.append({
-            'code': district['code'],
-            'name': district['name'],
-            'talukas': talukas
-        })
-
-    result.sort(key=lambda d: d['name'])
-
-    return JsonResponse(result, safe=False)
 
 @api_view(["GET"])
 def report_gen(request):
@@ -250,70 +235,64 @@ def report_gen(request):
     district = district.lower()
     taluka = taluka.lower()
     village = village.lower()
-    survey_no = int(survey_no)
+    #survey_no = int(survey_no)
 
     all_manager_obj = all_manager()
     pdf = all_manager_obj.get_plot_pdf_by_khata(state=state, district=district, taluka=taluka, village=village, khata_no=survey_no)
     response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{survey_no}_plot.pdf"'
 
-
-
     return response
-
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def report_gen3(request):
-    """Generates report for a single entity with access validation and transaction tracking"""
-    if request.method == "GET":
-        user = request.user
+    """Generates a report for a single entity with access validation and transaction tracking."""
 
+    user = request.user
+    params = {key: request.query_params.get(key, "").strip().lower() for key in ["state", "district", "taluka", "village"]}
+    survey_no = request.query_params.get("survey_no")
 
-        state = request.query_params.get("state")
-        district = request.query_params.get("district")
-        taluka = request.query_params.get("taluka")
-        village = request.query_params.get("village")
-        survey_no = request.query_params.get("survey_no")
+    if not survey_no or any(not v for v in params.values()):
+        return Response({"detail": "Invalid query parameters"}, status=status.HTTP_400_BAD_REQUEST)
 
-        plans = user.plans.all()
-
-
-        for p in plans:
-            if not p.is_valid:
-                plans.remove(p)
-
-        # If no valid plans, return error
-        if not plans:
-            return Response(
-                {"detail": "No valid plans found for the user"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-
-        if not state or not district or not taluka or not village or  survey_no is None:
-            print(state, district, taluka, village, survey_no)
-            return Response({"detail": "Invalid query params"}, status=status.HTTP_400_BAD_REQUEST)
-
-        state = state.lower()
-        district = district.lower()
-        taluka = taluka.lower()
-        village = village.lower()
+    try:
         survey_no = int(survey_no)
+    except ValueError:
+        return Response({"detail": "Invalid survey number"}, status=status.HTTP_400_BAD_REQUEST)
 
-        all_manager_obj = all_manager()
-        pdf = all_manager_obj.get_plot_pdf(state, district, taluka, village, survey_no)
+    valid_plans = [p for p in user.plans.all() if p.is_valid]
 
+    if not valid_plans:
+        return Response({"detail": "No valid plans found for the user"}, status=status.HTTP_400_BAD_REQUEST)
 
+    pdf = all_manager().get_plot_pdf_by_khata(**params, khata_no=survey_no)
+
+    if pdf:
+        ReportTransaction.objects.create(user=user, plan=valid_plans[0])
         response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{survey_no}_plot.pdf"'
-
-
-        transaction = ReportTransaction.objects.create(user=request.user, plan=plans[0])
-
         return response
 
+    return Response({"error": "Failed to generate report"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+def get_plot_by_lat_lng(request):
+    lat = request.query_params.get("lat")
+    lng = request.query_params.get("lng")
+    state = "maharashtra"
+    if state in request.query_params:
+        state = request.query_params.get("state")
+    coordinates= {
+        "lat": float(lat),
+        "lng": float(lng)
+    }
+
+    all_manager_obj = all_manager()
+    data = all_manager_obj.get_plot_by_lat_lng(state, coordinates)
+    return Response(data, status=status.HTTP_200_OK)
 
 
 
@@ -324,7 +303,7 @@ def get_metadata(request):
     """Get all metadata in district -> taluka -> village format"""
 
     # Fetch metadata
-    metadata = MaharashtraMetadata.objects.all().values("district_name", "taluka_name", "village_name")
+    metadata = MaharashtraMetadata.objects.using('external_db').all().values("district_name", "taluka_name", "village_name")
 
     # Initialize a defaultdict to structure the data
     result = defaultdict(lambda: defaultdict(list))

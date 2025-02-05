@@ -3,7 +3,6 @@ import uuid
 from datetime import timedelta
 from django.utils import timezone
 from django.db import models
-from user_auth.models import CustomUser
 
 PLAN_TYPE = [("Village", "Village"), ("District", "District"), ("Taluka", "Taluka"), ("Free", "Free")]
 
@@ -197,38 +196,6 @@ class Transaction(models.Model):
     class Meta:
         ordering = ["created_at"]
 
-class Village(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=255, null=False, blank=False)
-    district = models.ForeignKey(to="District", on_delete=models.CASCADE, db_index=True)
-    taluka = models.ForeignKey(to="Taluka", on_delete=models.CASCADE, db_index=True)
-    data = models.JSONField(null=True, blank=True)
-
-    class Meta:
-        ordering = ["name"]
-
-class District(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=255, null=False, blank=False)
-    data = models.JSONField(null=True, blank=True)
-
-    class Meta:
-        ordering = ["name"]
-
-class Taluka(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    name = models.CharField(max_length=255, null=False, blank=False)
-    district = models.ForeignKey(to="District", on_delete=models.CASCADE, db_index=True)
-    data = models.JSONField(null=True, blank=True)
-
-    class Meta:
-        ordering = ["name"]
 
 class MaharashtraMetadata(models.Model):
     ogc_fid = models.AutoField(primary_key=True)
