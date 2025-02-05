@@ -290,8 +290,17 @@ def get_plot_by_lat_lng(request):
     }
 
     all_manager_obj = all_manager()
-    data = all_manager_obj.get_plot_by_lat_lng(state, coordinates)
-    return Response(data, status=status.HTTP_200_OK)
+    entries = all_manager_obj.get_plot_by_lat_lng(state, coordinates)
+    if not entries:
+        return Response({"error": "No plots found for the given coordinates"}, status=status.HTTP_404_NOT_FOUND)
+    details = []
+    for entry in entries:
+        details.append({
+            "owner_names": entry['owner_names'],
+            "village": entry['village'],
+            "survey_no": entry['survey_no']
+        })
+    return Response(details, status=status.HTTP_200_OK)
 
 
 
