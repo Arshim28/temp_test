@@ -3,7 +3,6 @@ import uuid
 from datetime import timedelta
 from django.utils import timezone
 from django.db import models
-from user_auth.models import CustomUser
 
 PLAN_TYPE = [("Village", "Village"), ("District", "District"), ("Taluka", "Taluka"), ("Free", "Free")]
 
@@ -197,11 +196,14 @@ class Transaction(models.Model):
     class Meta:
         ordering = ["created_at"]
 
+<<<<<<< HEAD
 
 
 
 
 
+=======
+>>>>>>> restore-a81f709
 
 class MaharashtraMetadata(models.Model):
     """Model for Maharashtra Metadata

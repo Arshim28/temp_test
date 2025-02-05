@@ -1,7 +1,6 @@
 from django.contrib import admin
-from django import forms
 
-from .models import Plan, ReportPlan, Transaction, ReportTransaction, MaharashtraMetadata
+from .models import Plan, Transaction, MaharashtraMetadata
 
 
 
