@@ -98,13 +98,12 @@ class KhataNumbersView(View):
 
         try:
             all_manager_obj = all_manager()
-            data_manager = all_manager_obj.textual_data_manager()
+            data_manager = all_manager_obj.textual_data_manager
 
             khata_numbers = data_manager.get_khata_from_village(district, taluka_name, village_name)
             return JsonResponse({'khata_numbers': khata_numbers})
         except Exception as e:
-
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
