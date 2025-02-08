@@ -139,7 +139,7 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
                 queryParams.append('entity_type', formattedViewLevel);
                 queryParams.append('entity_name', entityName);
             } else if (selectedPlanType === 'reportdownload') {
-                queryParams.append('plan_type', selectedPlanType);
+                queryParams.append('plan_type', 'report');
                 queryParams.append('quantity', selectedReportQuantity);
             }
 
@@ -279,17 +279,97 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
                 </button>
             </form>
 
-            {/* Cost Popup */}
+            {/* Proper Popup */}
             {showPopup && (
-                <div className="popup">
-                    <div className="popup-content">
-                        <p>💰 Estimated Cost: ₹{estimatedCost}</p>
-                        <button className="popup-button" onClick={() => alert('Proceeding to Payment...')}>
-                            Proceed to Pay
-                        </button>
+                <div className="popup-overlay">
+                    <div className="popup-container">
+                        <h3>Estimated Cost</h3>
+                        <p>💰 ₹{estimatedCost}</p>
+                        <div className="popup-actions">
+                            <button className="popup-button" onClick={() => alert('Proceeding to Payment...')}>
+                                Proceed to Pay
+                            </button>
+                            <button className="popup-close" onClick={() => setShowPopup(false)}>Close</button>
+                        </div>
                     </div>
                 </div>
             )}
+            {/* CSS Styles */}
+            <style jsx>{`
+                .popup-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 1000;
+                }
+
+                .popup-container {
+                    background: white;
+                    padding: 20px;
+                    border-radius: 10px;
+                    text-align: center;
+                    width: 300px;
+                    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+                    animation: fadeIn 0.3s ease-in-out;
+                }
+
+                .popup-container h3 {
+                    margin-bottom: 10px;
+                    font-size: 18px;
+                    font-weight: bold;
+                }
+
+                .popup-container p {
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #27ae60;
+                }
+
+                .popup-actions {
+                    margin-top: 20px;
+                    display: flex;
+                    justify-content: space-between;
+                }
+
+                .popup-button {
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                }
+
+                .popup-close {
+                    background: #e74c3c;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                }
+
+                .popup-button:hover {
+                    background: #0056b3;
+                }
+
+                .popup-close:hover {
+                    background: #c0392b;
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+            `}</style>
         </div>
     );
 }
