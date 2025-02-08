@@ -19,9 +19,9 @@ export default function Sidebar({ userDetails, handleAllPlansClick, handleDashbo
                 <li className="menu-item" onClick={handleAllPlansClick}>
                     <FaClipboardList className="menu-icon" /> All Plans
                 </li>
-                <li className="menu-item">
+                {/* <li className="menu-item">
                     <FaBoxOpen className="menu-icon" /> My Orders
-                </li>
+                </li> */}
                 <li className="menu-item">
                     <FaCog className="menu-icon" /> My Settings
                 </li>

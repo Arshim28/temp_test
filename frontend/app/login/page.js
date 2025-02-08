@@ -58,6 +58,10 @@ export default function LoginPage() {
                     <button type="submit" className="login-button">Login</button>
                 </form>
                 {error && <p className="login-error">{error}</p>}
+                <p className="signin-switch">
+                    Don't have an account?{' '}
+                    <span onClick={() => router.push('/signin')} className="signin-link">Signin here</span>
+                </p>
             </div>
         </section>
     );

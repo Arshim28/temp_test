@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './MapView.css';
@@ -15,9 +16,22 @@ export default function MapView() {
   const metadataRef = useRef(null);
   const [mapStyle, setMapStyle] = useState('base');
   const [expandedSidebar, setExpandedSidebar] = useState(false);
-
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const router = useRouter();
+  const handleUnauthorizedAccess = () => {
+    setShowLoginPopup(true);
+    setTimeout(() => {
+      setShowLoginPopup(false);
+      router.push('/login'); // Redirect to login page
+    }, 1000);
+  };
+  const token = localStorage.getItem('authToken');
   // Fetch layers
   useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      handleUnauthorizedAccess();
+    }
     const fetchLayers = async () => {
       try {
         const response = await fetch('http://65.2.140.129:7800/index.json');
@@ -29,7 +43,7 @@ export default function MapView() {
       }
     };
     fetchLayers();
-  }, []);
+  }, [token]);
 
   // Fetch districts
   useEffect(() => {
@@ -152,19 +166,22 @@ export default function MapView() {
           "circle-radius": 6,
           "circle-color": "#ff0000"
         };
-      } else if (geometryType === "LineString" || geometryType === "MultiLineString") {
+      } else if (geometryType === "LineString" || geometryType === "MultiLineString" || geometryType === "MultiCurve") {
         layerType = "line";
         _paint = {
           "line-width": 2,
           "line-color": "#0000ff"
         };
-      } else if (geometryType === "Polygon") {
+      } else if (geometryType === "Polygon" || geometryType === "MultiPolygon" || geometryType === "Geometry") {
         layerType = "fill";
         _paint = {
           'fill-color': '#0080FF',
           'fill-opacity': 0.2,
           'fill-outline-color': '#0000FF'
         };
+      } else {
+        console.error("Unsupported geometry type:", geometryType);
+        return;
       }
 
       map.addSource(layer.id, {
@@ -222,6 +239,13 @@ export default function MapView() {
 
   return (
     <div className="map-container">
+      {showLoginPopup && (
+        <div className="popup">
+          <div className="popup-content">
+            <p>🔒 Please login to continue</p>
+          </div>
+        </div>
+      )}
       <div className={`sidebar ${expandedSidebar ? 'expanded' : ''}`}>
         <button className="navbar-icon" onClick={handleLoadLayersClick}>
           <span role="img" aria-label="layers">🗂️ Load Layers</span>
@@ -261,11 +285,44 @@ export default function MapView() {
         <button className="navbar-icon" onClick={() => alert('Download report functionality to be implemented')}>
           <span role="img" aria-label="download">📥 Download Report</span>
         </button>
+        <button className="navbar-icon" onClick={() => router.push('/dashboard')}>
+          <span role="img" aria-label="dashboard">🏠 Go to Dashboard</span>
+        </button>
+
       </div>
 
       <div className="map-wrapper">
         <div ref={mapContainerRef} style={{ width: '100%', height: '100vh' }} />
       </div>
+      {/* Styles for the popup */}
+      <style jsx>{`
+                .popup {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 0, 0, 0.8);
+                    padding: 20px;
+                    border-radius: 10px;
+                    color: white;
+                    font-size: 18px;
+                    text-align: center;
+                    animation: fadeIn 0.3s ease-in-out;
+                    z-index: 1000;
+                    width: 300px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+                }
+
+                .popup-content {
+                    padding: 10px;
+                    color: black;
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translate(-50%, -55%); }
+                    to { opacity: 1; transform: translate(-50%, -50%); }
+                }
+            `}</style>
     </div>
   );
 }

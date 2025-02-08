@@ -27,16 +27,17 @@ class Plan(models.Model):
         db_index=True,
     )
 
-    duration = models.IntegerField(null=False, blank=False, default=0)  # in months
+    duration = models.IntegerField(null=False, blank=False, default=12)  # in months
+    is_paid = models.BooleanField(default=False)
 
     @property
-    def total_transactions(self):
+    def total_transactions(self) -> int:
         """
         Returns the total number of transactions associated with this user.
         """
         return self._get_transaction_count()
 
-    def _get_transaction_count(self):
+    def _get_transaction_count(self) -> int:
         """
         Helper method to count transactions associated with this user.
         """
@@ -54,7 +55,7 @@ class Plan(models.Model):
         """
         Checks whether the valid_till date is in the future.
         """
-        return (self.valid_till > timezone.now()) and (self.total_transactions < ALLOWED_TRANSACTIONS[self.plan_type])
+        return (self.valid_till > timezone.now()) and (self.total_transactions < ALLOWED_TRANSACTIONS[str(self.plan_type)]) and self.is_paid
 
     def __str__(self):
         return self.plan_type + "--" + self.entity_name
@@ -74,7 +75,8 @@ class ReportPlan(models.Model):
         db_index=True,
     )
     quantity = models.IntegerField(null=False, blank=False, default=0)
-    duration = models.IntegerField(null=False, blank=False, default=0)  # in months
+    duration = models.IntegerField(null=False, blank=False, default=12)  # in months
+    is_paid = models.BooleanField(default=False)
 
     @property
     def valid_till(self):
@@ -88,7 +90,7 @@ class ReportPlan(models.Model):
         """
         Checks whether the valid_till date is in the future.
         """
-        return self.valid_till > timezone.now() and self.total_transactions < self.quantity
+        return self.valid_till > timezone.now() and self.total_transactions < self.quantity and self.is_paid
 
     @property
     def total_transactions(self):

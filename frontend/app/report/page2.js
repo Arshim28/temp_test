@@ -2,9 +2,12 @@
 import './ReportPage.css';
 import { FaSearch } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import axios from 'axios';
+import LoadingScreen from '../loader/page';
+
 
 export default function ReportPage() {
     const [filters, setFilters] = useState({
@@ -20,8 +23,27 @@ export default function ReportPage() {
     const [reports, setReports] = useState([]);
     const [hierarchy, setHierarchy] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isSearchingLatLong, setIsSearchingLatLong] = useState(false); // Track if user searched by lat/long
+    const [showLoginPopup, setShowLoginPopup] = useState(false);
+    const router = useRouter();
+
+    const handleUnauthorizedAccess = () => {
+        setShowLoginPopup(true);
+        setTimeout(() => {
+            setShowLoginPopup(false);
+            router.push('/login'); // Redirect to login page
+        }, 3000);
+    };
+    const token = localStorage.getItem('authToken');
 
     useEffect(() => {
+        if (!token) {
+            handleUnauthorizedAccess();
+        }
+    }, [token]);
+
+    useEffect(() => {
+
         const fetchData = async () => {
             try {
                 const [hierarchyRes, reportsRes] = await Promise.all([
@@ -47,6 +69,7 @@ export default function ReportPage() {
             ...(field === 'taluka' && { village: '' })
         }));
     };
+    console.log('Reports:', reports);
 
     const filteredReports = reports.filter((report) => {
         if (filters.district && report.district_name !== filters.district) return false;
@@ -59,15 +82,15 @@ export default function ReportPage() {
     });
 
     const searchByLatLong = async () => {
-        const latLongInput = filters.longitude; // Get the value from the input field
+        const latLongInput = filters.longitude;
         const latLongParts = latLongInput.split(',').map(part => part.trim());
 
-        // Check if the input is in the correct format
         if (latLongParts.length !== 2 || isNaN(latLongParts[0]) || isNaN(latLongParts[1])) {
             alert('Please enter a valid Latitude and Longitude in the format: "latitude,longitude"');
             return;
         }
 
+        setIsSearchingLatLong(true); // Mark that lat/long search has occurred
         const lat = latLongParts[0];
         const long = latLongParts[1];
 
@@ -86,15 +109,13 @@ export default function ReportPage() {
             const data = await response.json();
             console.log('Search Results:', data);
             // Handle the response and update the UI as necessary
+            setReports(data); // Assuming the API returns the reports based on the lat/long search
 
         } catch (error) {
             console.error('Error searching by Latitude and Longitude:', error);
             alert('Failed to search by Latitude and Longitude. Please try again.');
         }
     };
-
-
-    // console.log('Filtered Reports:', filteredReports);
 
     const downloadReportPDF = async (report) => {
         try {
@@ -120,48 +141,6 @@ export default function ReportPage() {
         }
     };
 
-    const downloadAllReportsAsZip = async () => {
-        const zip = new JSZip();
-        const downloadPromises = filteredReports.map(async (report) => {
-            try {
-                const params = new URLSearchParams({
-                    state: 'maharashtra',
-                    district: report.district_name,
-                    taluka: report.taluka_name,
-                    village: report.village_name,
-                    survey_no: filters.surveyNumber || report.survey_number // Use the user-provided survey number if available
-                });
-                console.log(params)
-
-                const response = await fetch(`http://65.2.140.129:8000/report-gen/?${params}`);
-
-                // Log the response status to help debug
-                if (!response.ok) {
-                    const errorDetails = await response.text(); // Get the error response text
-                    throw new Error(`Failed to fetch ${report.khata_number}: ${response.status} ${response.statusText} - ${errorDetails}`);
-                }
-
-                const blob = await response.blob();
-                zip.file(`Report_${report.khata_number}.pdf`, blob);
-            } catch (error) {
-                console.error(`Error fetching report ${report.khata_number}:`, error);
-            }
-        });
-
-        // Wait for all the promises to resolve
-        await Promise.all(downloadPromises);
-
-        try {
-            // Once all files are added, generate the zip file and download it
-            const zipContent = await zip.generateAsync({ type: 'blob' });
-            saveAs(zipContent, 'All_Reports.zip');
-        } catch (error) {
-            console.error('Error generating ZIP file:', error);
-            alert('Failed to create ZIP file. Please try again.');
-        }
-    };
-
-
     const downloadReportBySurveyNumber = async () => {
         if (!filters.surveyNumber) {
             alert("Please enter a valid survey number.");
@@ -169,13 +148,12 @@ export default function ReportPage() {
         }
 
         try {
-            // Add additional parameters (district, taluka, village, state)
             const params = new URLSearchParams({
-                state: 'maharashtra', // Assuming all reports are from Maharashtra
+                state: 'maharashtra',
                 district: filters.district.toLowerCase(),
                 taluka: filters.taluka.toLowerCase(),
                 village: filters.village.toLowerCase(),
-                survey_no: filters.surveyNumber
+                survey_no: filters.khata_no
             });
 
             const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`);
@@ -193,8 +171,9 @@ export default function ReportPage() {
     };
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <LoadingScreen />;
     }
+
 
     const reportTypes = ["Type 1", "Type 2", "Type 3"];
     const selectedDistrict = hierarchy.find(d => d.name === filters.district);
@@ -202,6 +181,14 @@ export default function ReportPage() {
 
     return (
         <div className="report-page-container">
+            {showLoginPopup && (
+                <div className="popup">
+                    <div className="popup-content">
+                        <p>🔒 Please login to continue</p>
+                    </div>
+                </div>
+            )}
+
             <div className="top-navbar">
                 <div className="user-profile-circle">U</div>
             </div>
@@ -209,14 +196,9 @@ export default function ReportPage() {
             <div className="filter-section">
                 <h2 className="filter-heading">Filter Reports</h2>
                 <div className="filters-container">
-                    <select className="dropdown" onChange={(e) => handleFilterChange('state', e.target.value)}>
-                        <option value="">Select State</option>
-                        <option value="Maharashtra">Maharashtra</option>
-                        <option value="Gujarat">Gujarat</option>
-                        <option value="Rajasthan">Rajasthan</option>
-                        <option value="Karnataka">Karnataka</option>
+                    <select className="dropdown" disabled>
+                        <option value="Maharashtra" selected>Maharashtra</option>
                     </select>
-
                     <select className="dropdown" onChange={(e) => handleFilterChange('district', e.target.value)}>
                         <option value="">Select District</option>
                         {hierarchy.map(district => (
@@ -238,39 +220,45 @@ export default function ReportPage() {
                         ))}
                     </select>
 
-                    <select className="dropdown" onChange={(e) => handleFilterChange('reportType', e.target.value)}>
+                    {/* <select className="dropdown" onChange={(e) => handleFilterChange('reportType', e.target.value)}>
                         <option value="">Select Report Type</option>
                         {reportTypes.map((type, index) => (
                             <option key={index} value={type}>{type}</option>
                         ))}
+                    </select> */}
+                    <select className="dropdown" disabled>
+                        <option value="Maharashtra" selected>Coming Soon</option>
+                    </select>
+                    <select className="dropdown" onChange={(e) => handleFilterChange('village', e.target.value)} disabled={!filters.taluka}>
+                        <option value="">Select Khata Number</option>
+                        {selectedTaluka?.villages?.map(village => (
+                            <option key={village.code} value={village.name}>{village.name}</option>
+                        ))}
                     </select>
 
-                    <input
+                    {/* <input
                         type="text"
                         className="survey-number-input"
                         placeholder="Enter Khata Number"
                         value={filters.surveyNumber}
                         onChange={(e) => handleFilterChange('surveyNumber', e.target.value)}
-                    />
+                    /> */}
                 </div>
 
-                {/* Download Report Section */}
                 <div className="download-section">
                     <button className="download-button" onClick={downloadReportBySurveyNumber}>Download Report by Khata Number</button>
                 </div>
 
-                {/* OR Text */}
                 <div className="text-center" style={{ marginTop: "15px", fontSize: "16px" }}>
                     <p>OR</p>
                 </div>
 
-                {/* Search by Latitude and Longitude Section */}
                 <div className="search-lat-long-container">
                     <input
                         type="text"
                         className="search-lat-long-bar"
                         placeholder="Eg. 18.9750° N, 72.8233° E"
-                        value={filters.longitude}
+                        defaultValue={filters.longitude}
                         onChange={(e) => handleFilterChange('longitude', e.target.value)}
                     />
                     <button className="search-button-lat-long" onClick={searchByLatLong}>
@@ -279,9 +267,24 @@ export default function ReportPage() {
                 </div>
             </div>
 
-
             <div className="content-section">
-                {filters.district === '' ? (
+                {isSearchingLatLong ? (
+                    <div className="report-list">
+                        {filteredReports.map((report, index) => (
+                            <div key={index} className="report-card-row">
+                                <div>
+                                    <h3>Khata Number: {report.khata_no}</h3>
+                                    {/* <p>Survey Number: {report.survey_no}</p> */}
+                                    <p>Village Name: {report.village_name}</p>
+                                    <p>Owner Name(s): {report.owner_names}</p>
+                                </div>
+                                <button className="download-button" onClick={() => downloadReportPDF(report)}>
+                                    Download Report
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
                     <div className="placeholder-content">
                         <div className="placeholder-images">
                             <div className="image-description-container">
@@ -307,33 +310,36 @@ export default function ReportPage() {
                             </div>
                         </div>
                     </div>
-                ) : (
-                    <div className="report-list">
-                        <button
-                            className="download-all-button"
-                            onClick={downloadAllReportsAsZip}
-                        >
-                            Download All ({filteredReports.length})
-                        </button>
-                        {filteredReports.map((report, index) => (
-                            <div key={index} className="report-card-row">
-                                <div>
-                                    <h3>Khata Number: {report.khata_number}</h3>
-                                    <p>Survey Number: {report.survey_number}</p>
-                                    <p>Village Name: {report.village_name}</p>
-                                    <p>Owner Name(s): {report.owner_names}</p>
-                                </div>
-                                <button
-                                    className="download-button"
-                                    onClick={() => downloadReportPDF(report)}
-                                >
-                                    Download Report
-                                </button>
-                            </div>
-                        ))}
-                    </div>
                 )}
             </div>
-        </div >
+            {/* Styles for the popup */}
+            <style jsx>{`
+                .popup {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 0, 0, 0.8);
+                    padding: 20px;
+                    border-radius: 10px;
+                    color: white;
+                    font-size: 18px;
+                    text-align: center;
+                    animation: fadeIn 0.3s ease-in-out;
+                    z-index: 1000;
+                    width: 300px;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+                }
+
+                .popup-content {
+                    padding: 10px;
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translate(-50%, -55%); }
+                    to { opacity: 1; transform: translate(-50%, -50%); }
+                }
+            `}</style>
+        </div>
     );
 }

@@ -1,4 +1,4 @@
-
+import time
 from collections import defaultdict
 
 from django.http import HttpResponse, JsonResponse
@@ -99,7 +99,7 @@ class KhataNumbersView(View):
             all_manager_obj = all_manager()
             data_manager = all_manager_obj.textual_data_manager
 
-            khata_numbers = list(set(data_manager.get_khata_from_village(district, taluka_name, village_name)))
+            khata_numbers = sorted([int(i) for i in list(set(data_manager.get_khata_from_village(district, taluka_name, village_name)))])
             return JsonResponse({'khata_numbers': khata_numbers})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -183,8 +183,6 @@ class RetrieveTransactionView(RetrieveAPIView):
         """
         return Transaction.objects.filter(user=self.request.user)
 
-
-
 class MaharashtraMetadataList(APIView):
     def get(self, request):
         filters = {}
@@ -194,7 +192,7 @@ class MaharashtraMetadataList(APIView):
         village = request.query_params.get('village', None)
 
         if state:
-            filters['state_name__in'] = [s.strip().upper() for s in state.split(",")]  # Support multiple states
+            filters['state_name'] = state.upper()
         if district:
             filters['district_name'] = district.upper()
         if taluka:
@@ -202,17 +200,9 @@ class MaharashtraMetadataList(APIView):
         if village:
             filters['village_name'] = village
 
-        # Fetch only required fields to optimize performance
-        query_data = MaharashtraMetadata.objects.using('external_db').filter(**filters).values_list(
-            "state_name", "district_name", "taluka_name", "village_name"
-        )
-
-        result = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-
-        for state_name, district_name, taluka_name, village_name in query_data:
-            result[state_name][district_name][taluka_name].append(village_name)
-
-        return Response(result, status=status.HTTP_200_OK)
+        data = MaharashtraMetadata.objects.using('external_db').filter(**filters)
+        serializer = MaharashtraMetadataSerializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["GET"])
@@ -288,6 +278,7 @@ def report_gen3(request):
 
 @api_view(["GET"])
 def get_plot_by_lat_lng(request):
+    start_f = time.perf_counter()
     lat = request.query_params.get("lat")
     lng = request.query_params.get("lng")
     state = "maharashtra"
@@ -303,12 +294,16 @@ def get_plot_by_lat_lng(request):
     if not entries:
         return Response({"error": "No plots found for the given coordinates"}, status=status.HTTP_404_NOT_FOUND)
     details = []
-    for entry in entries:
+    for khata in entries:
         details.append({
-            "owner_names": entry['owner_names'],
-            "village": entry['village'],
-            "survey_no": entry['survey_no']
+            "khata_no": khata,
+            "village_name": entries[khata]['village'],
+            "owner_names":entries[khata]['owner_name_english'],
+            "district" : entries[khata]['district'],
+            "taluka" : entries[khata]['taluka'],
         })
+
+
     return Response(details, status=status.HTTP_200_OK)
 
 

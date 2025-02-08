@@ -49,20 +49,20 @@ class ReportPlanSerializer(ModelSerializer):
 
     class Meta:
         model = ReportPlan
-        fields = ["id", "created_at", "updated_at", "plan", "details"]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        fields = ["id", "created_at", "updated_at", "is_valid", "valid_till", "total_transactions"]
+        read_only_fields = ["id", "created_at", "updated_at", "is_valid", "valid_till", "total_transactions"]
 
     def get_is_valid(self, obj):
         """Retrieve the `is_valid` property of the Plan model."""
-        return obj.plan.is_valid
+        return obj.is_valid
 
     def get_valid_till(self, obj):
         """Retrieve the `valid_till` property of the Plan model."""
-        return obj.plan.valid_till
+        return obj.valid_till
 
     def get_total_transactions(self, obj):
         """Retrieve the `total_transactions` property of the Plan model."""
-        return obj.plan.total_transactions
+        return obj.total_transactions
 
 
 
