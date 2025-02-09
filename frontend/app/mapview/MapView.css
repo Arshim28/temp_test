@@ -366,3 +366,29 @@ button:disabled:hover {
 .popup-content button:hover {
   background-color: #0056b3;
 }
+
+.feature-popup {
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  font-size: 14px;
+  max-width: 250px;
+  z-index: 1000;
+  transform: translate(-50%, -100%);
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.popup-header button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}

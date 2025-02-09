@@ -17,7 +17,10 @@ export default function MapView() {
   const [mapStyle, setMapStyle] = useState('base');
   const [expandedSidebar, setExpandedSidebar] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const [popupInfo, setPopupInfo] = useState(null);
   const router = useRouter();
+
+
   const handleUnauthorizedAccess = () => {
     setShowLoginPopup(true);
     setTimeout(() => {
@@ -199,6 +202,45 @@ export default function MapView() {
         paint: _paint
       });
 
+
+      map.on('click', `layer-${layer.id}`, (e) => {
+        const feature = e.features[0];
+        if (feature) {
+          const point = map.project(e.lngLat); // Convert to screen coordinates
+          const screenWidth = window.innerWidth;
+          const screenHeight = window.innerHeight;
+          const popupWidth = 200;  // Estimated width of popup
+          const popupHeight = 120; // Estimated height of popup
+
+          let posX = point.x;
+          let posY = point.y;
+
+          // Adjust position dynamically to keep the popup within screen bounds
+          if (point.y - popupHeight < 0) {
+            // If popup goes out of top screen, place it below
+            posY += 20;
+          } else {
+            // Otherwise, place it above
+            posY -= popupHeight + 10;
+          }
+
+          if (point.x + popupWidth > screenWidth) {
+            // If popup goes out of right screen, move it left
+            posX -= popupWidth + 10;
+          } else if (point.x - popupWidth < 0) {
+            // If popup goes out of left screen, move it right
+            posX += 20;
+          }
+
+          setPopupInfo({
+            screenX: posX,
+            screenY: posY,
+            properties: feature.properties
+          });
+        }
+      });
+
+
       setActiveLayers(prevState => [...prevState, layer]);  // Add the layer to active layers state
     }
   };
@@ -211,6 +253,10 @@ export default function MapView() {
     // Remove the layer from map
     map.removeLayer(`layer-${layer.id}`);
     map.removeSource(layer.id);
+
+    if (popupInfo) {
+      setPopupInfo(null);
+    }
 
     // Remove layer from active layers state
     setActiveLayers(prevState => prevState.filter(activeLayer => activeLayer.id !== layer.id));
@@ -289,10 +335,37 @@ export default function MapView() {
           <span role="img" aria-label="dashboard">🏠 Go to Dashboard</span>
         </button>
 
+
       </div>
 
+
       <div className="map-wrapper">
+
         <div ref={mapContainerRef} style={{ width: '100%', height: '100vh' }} />
+
+        {popupInfo && (
+          <div
+            className="feature-popup"
+            style={{
+              position: "absolute",
+              left: `${popupInfo.screenX}px`,
+              top: `${popupInfo.screenY}px`,
+              transform: "translate(-50%, -50%)", // Center popup
+            }}
+          >
+            <div className="popup-header">
+              <h4>Feature Details</h4>
+              <button onClick={() => setPopupInfo(null)}>✖</button>
+            </div>
+            <div className="popup-content">
+              {Object.entries(popupInfo.properties).map(([key, value]) => (
+                <p key={key}><strong>{key}:</strong> {value}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
+
       </div>
       {/* Styles for the popup */}
       <style jsx>{`
@@ -323,6 +396,8 @@ export default function MapView() {
                     to { opacity: 1; transform: translate(-50%, -50%); }
                 }
             `}</style>
+
+
     </div>
   );
 }

@@ -16,37 +16,89 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='MVPlanOrder',
+            name="MVPlanOrder",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('order_product', models.CharField(max_length=100)),
-                ('order_amount', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('order_payment_id', models.CharField(max_length=100, unique=True)),
-                ('status', models.CharField(choices=[('PENDING', 'Pending'), ('COMPLETED', 'Completed'), ('FAILED', 'Failed')], default='PENDING', max_length=10)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='mv_orders', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("order_product", models.CharField(max_length=100)),
+                ("order_amount", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("order_payment_id", models.CharField(max_length=100, unique=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("PENDING", "Pending"),
+                            ("COMPLETED", "Completed"),
+                            ("FAILED", "Failed"),
+                        ],
+                        default="PENDING",
+                        max_length=10,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="mv_orders",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Map-View Plan Order',
-                'verbose_name_plural': 'Map-View Plan Orders',
+                "verbose_name": "Map-View Plan Order",
+                "verbose_name_plural": "Map-View Plan Orders",
             },
         ),
         migrations.CreateModel(
-            name='ReportPlanOrder',
+            name="ReportPlanOrder",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('order_product', models.CharField(max_length=100)),
-                ('order_amount', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('order_payment_id', models.CharField(max_length=100, unique=True)),
-                ('status', models.CharField(choices=[('PENDING', 'Pending'), ('COMPLETED', 'Completed'), ('FAILED', 'Failed')], default='PENDING', max_length=10)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='report_orders', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("order_product", models.CharField(max_length=100)),
+                ("order_amount", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("order_payment_id", models.CharField(max_length=100, unique=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("PENDING", "Pending"),
+                            ("COMPLETED", "Completed"),
+                            ("FAILED", "Failed"),
+                        ],
+                        default="PENDING",
+                        max_length=10,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="report_orders",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Report Plan Order',
-                'verbose_name_plural': 'Report Plan Orders',
+                "verbose_name": "Report Plan Order",
+                "verbose_name_plural": "Report Plan Orders",
             },
         ),
     ]

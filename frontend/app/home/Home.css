@@ -181,3 +181,35 @@ footer {
         padding: 4%;
     }
 }
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.welcome-section {
+    flex-grow: 1;
+    /* Ensures the welcome section takes remaining space */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 50px 20px;
+}
+
+footer {
+    background-color: #212529;
+    color: white;
+    text-align: center;
+    padding: 15px;
+    margin-top: auto;
+    /* Pushes the footer to the bottom */
+}

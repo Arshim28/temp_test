@@ -6,41 +6,57 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('payments', '0001_initial'),
+        ("payments", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='FixedMVPlans',
+            name="FixedMVPlans",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('plan_name', models.CharField(max_length=100)),
-                ('entity_type', models.CharField(max_length=100)),
-                ('entity_name', models.CharField(max_length=100)),
-                ('price', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('details', models.JSONField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("plan_name", models.CharField(max_length=100)),
+                ("entity_type", models.CharField(max_length=100)),
+                ("entity_name", models.CharField(max_length=100)),
+                ("price", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("details", models.JSONField()),
             ],
             options={
-                'verbose_name': 'Fixed Map-View Plan',
-                'verbose_name_plural': 'Fixed Map-View Plans',
+                "verbose_name": "Fixed Map-View Plan",
+                "verbose_name_plural": "Fixed Map-View Plans",
             },
         ),
         migrations.CreateModel(
-            name='FixedReportPlans',
+            name="FixedReportPlans",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('plan_name', models.CharField(max_length=100)),
-                ('quantity', models.IntegerField()),
-                ('price', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('details', models.JSONField()),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("plan_name", models.CharField(max_length=100)),
+                ("quantity", models.IntegerField()),
+                ("price", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("details", models.JSONField()),
             ],
             options={
-                'verbose_name': 'Fixed Report Plan',
-                'verbose_name_plural': 'Fixed Report Plans',
+                "verbose_name": "Fixed Report Plan",
+                "verbose_name_plural": "Fixed Report Plans",
             },
         ),
     ]

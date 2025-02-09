@@ -74,7 +74,6 @@ class UserSerializer(serializers.ModelSerializer):
             "name",
             "password",
             "token",
-
         )
 
     def update(self, instance, validated_data):

@@ -1,11 +1,19 @@
 from rest_framework import serializers
-from .models import MVPlanOrder, ReportPlanOrder, OrderStatus, FixedMVPlans, FixedReportPlans
+from .models import (
+    MVPlanOrder,
+    ReportPlanOrder,
+    OrderStatus,
+    FixedMVPlans,
+    FixedReportPlans,
+)
 
 
 class BaseOrderSerializer(serializers.ModelSerializer):
     """Base serializer for all order models."""
 
-    status = serializers.ChoiceField(choices=OrderStatus.choices, default=OrderStatus.PENDING)
+    status = serializers.ChoiceField(
+        choices=OrderStatus.choices, default=OrderStatus.PENDING
+    )
     created_at = serializers.ReadOnlyField()
     updated_at = serializers.ReadOnlyField()
 
@@ -37,12 +45,11 @@ class ReportPlanOrderSerializer(BaseOrderSerializer):
         model = ReportPlanOrder
 
 
-
-
 class FixedMVPlansSerializer(serializers.ModelSerializer):
     class Meta:
         model = FixedMVPlans
         fields = ["id", "plan_name", "entity_type", "entity_name", "price", "details"]
+
 
 class FixedReportPlansSerializer(serializers.ModelSerializer):
     class Meta:

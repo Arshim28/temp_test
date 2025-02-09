@@ -161,6 +161,11 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 SENDER_MAIL = EMAIL_HOST_USER
 
 
+# Settings for RazorPay
+RAZORPAY_PUBLIC_KEY = env("RAZORPAY_PUBLIC_KEY")
+RAZORPAY_SECRET_KEY = env("RAZORPAY_SECRET_KEY")
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
@@ -175,3 +180,6 @@ AUTH_USER_MODEL = "user_auth.CustomUser"
 DATABASE_ROUTERS = ["utils.routers.MultiDBRouter"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+PAYMENT_CURRENCY = "INR"

@@ -1,6 +1,5 @@
 """Module containing helper functions for user_auth app."""
 
-
 import secrets
 import environ
 
@@ -10,11 +9,11 @@ from django.core.mail import send_mail
 env = environ.Env()
 environ.Env.read_env()
 
-def generate_otp()->str:
+
+def generate_otp() -> str:
     """Generate a 6 digit OTP."""
     otp = "".join([str(secrets.randbelow(10)) for _ in range(6)])
     return otp
-
 
 
 def send_otp(recipient, otp):

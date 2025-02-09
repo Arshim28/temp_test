@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
 class OrderStatus(models.TextChoices):
     PENDING = "PENDING", "Pending"
     COMPLETED = "COMPLETED", "Completed"
@@ -12,11 +13,16 @@ class OrderStatus(models.TextChoices):
 
 class BaseOrder(models.Model):
     """Abstract base model for orders."""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     order_product = models.CharField(max_length=100)
-    order_amount = models.DecimalField(max_digits=10, decimal_places=2)  # Use Decimal for currency
-    order_payment_id = models.CharField(max_length=100, unique=True)  # Ensure unique payment IDs
+    order_amount = models.DecimalField(
+        max_digits=10, decimal_places=2
+    )  # Use Decimal for currency
+    order_payment_id = models.CharField(
+        max_length=100, unique=True
+    )  # Ensure unique payment IDs
     status = models.CharField(
         max_length=10, choices=OrderStatus.choices, default=OrderStatus.PENDING
     )
@@ -32,9 +38,18 @@ class BaseOrder(models.Model):
 
 class MVPlanOrder(BaseOrder):
     """Order model for Map-View plans."""
+
     user = models.ForeignKey(
         User, related_name="mv_orders", on_delete=models.CASCADE, db_index=True
     )
+    fixed_plan = models.ForeignKey(
+        "payments.FixedMVPlans",
+        related_name="mv_orders",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         verbose_name = "Map-View Plan Order"
         verbose_name_plural = "Map-View Plan Orders"
@@ -42,9 +57,18 @@ class MVPlanOrder(BaseOrder):
 
 class ReportPlanOrder(BaseOrder):
     """Order model for Report plans."""
+
     user = models.ForeignKey(
         User, related_name="report_orders", on_delete=models.CASCADE, db_index=True
     )
+    fixed_plan = models.ForeignKey(
+        "payments.FixedReportPlans",
+        related_name="report_orders",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         verbose_name = "Report Plan Order"
         verbose_name_plural = "Report Plan Orders"
@@ -52,28 +76,41 @@ class ReportPlanOrder(BaseOrder):
 
 class FixedMVPlans(models.Model):
     """Plans that are set by the admin contains the plan name and the price"""
+
     # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     plan_name = models.CharField(max_length=100)
     entity_type = models.CharField(max_length=100)
     entity_name = models.CharField(max_length=100)
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # Use Decimal for currency
-    details = models.JSONField() #plan breakdown
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2
+    )  # Use Decimal for currency
+    details = models.JSONField()  # plan breakdown
+
+    def __str__(self):
+        return self.plan_name
 
     class Meta:
         verbose_name = "Fixed Map-View Plan"
         verbose_name_plural = "Fixed Map-View Plans"
 
+
 class FixedReportPlans(models.Model):
     """Plans that are set by the admin contains the plan name and the price"""
+
     # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     plan_name = models.CharField(max_length=100)
     quantity = models.IntegerField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # Use Decimal for currency
-    details = models.JSONField() #plan breakdown
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2
+    )  # Use Decimal for currency
+    details = models.JSONField()  # plan breakdown
+
+    def __str__(self):
+        return self.plan_name
 
     class Meta:
         verbose_name = "Fixed Report Plan"

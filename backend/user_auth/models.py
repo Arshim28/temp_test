@@ -18,10 +18,10 @@ class CustomUserManager(BaseUserManager):
             raise ValueError("The email  field must be set")
 
         email = self.normalize_email(email)
-        phone_number = None
+
         if "phone_number" in extra_fields:
             try:
-                phone_number = int(extra_fields.pop("phone_number"))
+                extra_fields["phone_number"] = int(extra_fields.pop("phone_number"))
             except ValueError:
                 extra_fields.pop("phone_number")
         name = email
@@ -49,7 +49,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     name = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(db_index=True, unique=True)
     phone_number = models.BigIntegerField(null=True, blank=True)
-
 
     ## User Permissions
     is_active = models.BooleanField(default=True)
@@ -150,8 +149,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         ordering = ["name", "email"]
 
 
-
-
 class UserProfile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -171,7 +168,6 @@ class UserProfile(models.Model):
         ordering = ["user__name", "user__email"]
 
 
-
 class OTPVerification(models.Model):
     email = models.EmailField(unique=True)
     otp = models.CharField(max_length=6)
@@ -181,12 +177,12 @@ class OTPVerification(models.Model):
     token_expires_at = models.DateTimeField(null=True, blank=True)
 
     def is_valid(self):
-        """ Check if the OTP is still valid """
+        """Check if the OTP is still valid"""
         return self.expires_at > now()
 
     @staticmethod
     def cleanup_expired(email):
-        """ Delete expired OTPs for a given email """
+        """Delete expired OTPs for a given email"""
         OTPVerification.objects.filter(email=email).filter(
             expires_at__lt=now()
         ).delete()

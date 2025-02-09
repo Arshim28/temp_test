@@ -5,14 +5,16 @@ from utils.models import (
     Transaction,
     MaharashtraMetadata,
     ReportPlan,
-    ReportTransaction
+    ReportTransaction,
 )
 
 
 class PlanSerializer(ModelSerializer):
     is_valid = SerializerMethodField()  # Read-only field for the `is_valid` property
     valid_till = SerializerMethodField()  # Read-only field for `valid_till`
-    total_transactions = SerializerMethodField()  # Read-only field for `total_transactions`
+    total_transactions = (
+        SerializerMethodField()
+    )  # Read-only field for `total_transactions`
 
     class Meta:
         model = Plan
@@ -27,7 +29,14 @@ class PlanSerializer(ModelSerializer):
             "valid_till",
             "total_transactions",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "is_valid", "valid_till", "total_transactions"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "is_valid",
+            "valid_till",
+            "total_transactions",
+        ]
 
     def get_is_valid(self, obj):
         """Retrieve the `is_valid` property of the Plan model."""
@@ -45,12 +54,28 @@ class PlanSerializer(ModelSerializer):
 class ReportPlanSerializer(ModelSerializer):
     is_valid = SerializerMethodField()  # Read-only field for the `is_valid` property
     valid_till = SerializerMethodField()  # Read-only field for `valid_till`
-    total_transactions = SerializerMethodField()  # Read-only field for `total_transactions`
+    total_transactions = (
+        SerializerMethodField()
+    )  # Read-only field for `total_transactions`
 
     class Meta:
         model = ReportPlan
-        fields = ["id", "created_at", "updated_at", "is_valid", "valid_till", "total_transactions"]
-        read_only_fields = ["id", "created_at", "updated_at", "is_valid", "valid_till", "total_transactions"]
+        fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "is_valid",
+            "valid_till",
+            "total_transactions",
+        ]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "is_valid",
+            "valid_till",
+            "total_transactions",
+        ]
 
     def get_is_valid(self, obj):
         """Retrieve the `is_valid` property of the Plan model."""
@@ -65,8 +90,6 @@ class ReportPlanSerializer(ModelSerializer):
         return obj.total_transactions
 
 
-
-
 class TransactionSerializer(ModelSerializer):
     class Meta:
         model = Transaction
@@ -74,8 +97,7 @@ class TransactionSerializer(ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
 
-
 class MaharashtraMetadataSerializer(ModelSerializer):
     class Meta:
         model = MaharashtraMetadata
-        fields = ['state_name', 'district_name', 'taluka_name', 'village_name']
+        fields = ["state_name", "district_name", "taluka_name", "village_name"]

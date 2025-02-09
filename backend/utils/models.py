@@ -4,10 +4,22 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db import models
 
-PLAN_TYPE = [("Village", "Village"), ("District", "District"), ("Taluka", "Taluka"), ("Free", "Free")]
+PLAN_TYPE = [
+    ("Village", "Village"),
+    ("District", "District"),
+    ("Taluka", "Taluka"),
+    ("Free", "Free"),
+]
 
 # TODO: Make this dynamic, so that this can be changed from the admin panel.
-ALLOWED_TRANSACTIONS = {"Village": 5, "District": 5, "Taluka": 5, "Talluka": 5, "Free":3}
+ALLOWED_TRANSACTIONS = {
+    "Village": 5,
+    "District": 5,
+    "Taluka": 5,
+    "Talluka": 5,
+    "Free": 3,
+}
+
 
 class Plan(models.Model):
     """Model for Plans"""
@@ -55,7 +67,11 @@ class Plan(models.Model):
         """
         Checks whether the valid_till date is in the future.
         """
-        return (self.valid_till > timezone.now()) and (self.total_transactions < ALLOWED_TRANSACTIONS[str(self.plan_type)]) and self.is_paid
+        return (
+            (self.valid_till > timezone.now())
+            and (self.total_transactions < ALLOWED_TRANSACTIONS[str(self.plan_type)])
+            and self.is_paid
+        )
 
     def __str__(self):
         return self.plan_type + "--" + self.entity_name
@@ -90,7 +106,11 @@ class ReportPlan(models.Model):
         """
         Checks whether the valid_till date is in the future.
         """
-        return self.valid_till > timezone.now() and self.total_transactions < self.quantity and self.is_paid
+        return (
+            self.valid_till > timezone.now()
+            and self.total_transactions < self.quantity
+            and self.is_paid
+        )
 
     @property
     def total_transactions(self):
@@ -155,7 +175,6 @@ class ReportTransaction(models.Model):
         ordering = ["created_at"]
 
 
-
 class Transaction(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -218,7 +237,7 @@ class MaharashtraMetadata(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'maharashtra_metadata'
+        db_table = "maharashtra_metadata"
 
     def __str__(self):
         return f"{self.village_name}, {self.district_name}, {self.state_name}"

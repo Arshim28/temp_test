@@ -4,43 +4,53 @@ from unittest.mock import patch
 from .views import KhataNumbersView  # Import the view being tested
 from land_value.data_manager import all_manager  # Import the DataManager class
 
+
 class KhataNumbersAPITest(TestCase):
-    @patch('land_value.data_manager.all_manager.textual_data_manager.get_khata_from_village')  # Mock the DataManager method
+    @patch(
+        "land_value.data_manager.all_manager.textual_data_manager.get_khata_from_village"
+    )  # Mock the DataManager method
     def test_get_khata_numbers_success(self, mock_get_khata_from_village):
         """
         Test successful response when valid parameters are provided.
         """
         # Mock the return value of get_khata_from_village
-        mock_get_khata_from_village.return_value = ['123', '456', '789']
+        mock_get_khata_from_village.return_value = ["123", "456", "789"]
 
         # Define query parameters
         params = {
-            'district': 'jalgaon',
-            'taluka_name': 'parola',
-            'village_name': 'mohadi',
+            "district": "jalgaon",
+            "taluka_name": "parola",
+            "village_name": "mohadi",
         }
 
         # Make a GET request to the API endpoint
-        url = reverse('khata_numbers')  # Use the name of the URL pattern
+        url = reverse("khata_numbers")  # Use the name of the URL pattern
         response = self.client.get(url, params)
 
         # Validate the response
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'khata_numbers': ['123', '456', '789']})
+        self.assertEqual(response.json(), {"khata_numbers": ["123", "456", "789"]})
 
     def test_get_khata_numbers_missing_parameters(self):
         """
         Test error response when required parameters are missing.
         """
         # Make a GET request with missing parameters
-        url = reverse('khata_numbers')
+        url = reverse("khata_numbers")
         response = self.client.get(url)
 
         # Validate the response
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json(), {'error': 'Missing required parameters: district, taluka_name, village_name'})
+        self.assertEqual(
+            response.json(),
+            {
+                "error": "Missing required parameters: district, taluka_name, village_name"
+            },
+        )
 
-    @patch('land_value.data_manager.all_manager.textual_data_manager.get_khata_from_village')
+    @patch(
+        "land_value.data_manager.all_manager.textual_data_manager.get_khata_from_village"
+    )
     def test_get_khata_numbers_empty_result(self, mock_get_khata_from_village):
         """
         Test response when no khata numbers are found.
@@ -50,20 +60,22 @@ class KhataNumbersAPITest(TestCase):
 
         # Define query parameters
         params = {
-            'district': 'example_district',
-            'taluka_name': 'example_taluka',
-            'village_name': 'example_village',
+            "district": "example_district",
+            "taluka_name": "example_taluka",
+            "village_name": "example_village",
         }
 
         # Make a GET request to the API endpoint
-        url = reverse('khata_numbers')
+        url = reverse("khata_numbers")
         response = self.client.get(url, params)
 
         # Validate the response
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'khata_numbers': []})
+        self.assertEqual(response.json(), {"khata_numbers": []})
 
-    @patch('land_value.data_manager.all_manager.textual_data_manager.get_khata_from_village')
+    @patch(
+        "land_value.data_manager.all_manager.textual_data_manager.get_khata_from_village"
+    )
     def test_get_khata_numbers_exception(self, mock_get_khata_from_village):
         """
         Test error response when an exception occurs.
@@ -73,15 +85,15 @@ class KhataNumbersAPITest(TestCase):
 
         # Define query parameters
         params = {
-            'district': 'example_district',
-            'taluka_name': 'example_taluka',
-            'village_name': 'example_village',
+            "district": "example_district",
+            "taluka_name": "example_taluka",
+            "village_name": "example_village",
         }
 
         # Make a GET request to the API endpoint
-        url = reverse('khata_numbers')
+        url = reverse("khata_numbers")
         response = self.client.get(url, params)
 
         # Validate the response
         self.assertEqual(response.status_code, 500)
-        self.assertIn('error', response.json())
+        self.assertIn("error", response.json())

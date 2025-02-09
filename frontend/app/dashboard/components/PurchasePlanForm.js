@@ -14,7 +14,7 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
     const [villages, setVillages] = useState([]);
     const [showPopup, setShowPopup] = useState(false);
     const [estimatedCost, setEstimatedCost] = useState(null);
-
+    const [orderId, setOrderId] = useState(null);
     const isPurchaseDisabled = () => {
         if (selectedPlanType === 'mapview') {
             return !selectedViewLevel || (selectedViewLevel === 'district' && !selectedDistrict) ||
@@ -148,6 +148,7 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
             });
             // console.log(response.data.details.total_amount);
             setEstimatedCost(response.data.details.total_amount);
+            setOrderId(response.data.id);
             setShowPopup(true);
         } catch (err) {
             console.error('Error checking cost:', err);
@@ -155,7 +156,100 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
         }
     };
 
+    const [loading, setLoading] = useState(false);
 
+    // Function to load Razorpay script dynamically
+    const loadScript = () => {
+        return new Promise((resolve) => {
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    };
+
+    // Function to handle payment success verification
+    const handlePaymentSuccess = async (response) => {
+        try {
+            let bodyData = new FormData();
+            bodyData.append("response", JSON.stringify(response));
+
+            await axios.post(
+                "http://65.2.140.129:8000/api/plans/payment/success/",
+                bodyData,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            alert("Payment successful!");
+            setShowPopup(false);
+            setActiveSection("dashboard");
+        } catch (err) {
+            console.error("Payment verification error:", err);
+            alert("Error verifying payment");
+        }
+    };
+
+    // Function to initiate Razorpay Payment
+    const handlePayment = async () => {
+        setLoading(true);
+        const res = await loadScript();
+        if (!res) {
+            alert("Failed to load Razorpay SDK");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            let bodyData = new FormData();
+            bodyData.append("amount", estimatedCost.toString());
+            bodyData.append("name", "Purchase Plan");
+            bodyData.append("fixed_order", orderId);
+            bodyData.append("order_type", selectedPlanType === "reportdownload" ? "report" : selectedPlanType);
+
+            const response = await axios.post(
+                "http://65.2.140.129:8000/api/plans/create-order/",
+                bodyData,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            const order = response.data.order;
+            const orderAmount = response.data.payment.amount;
+            const orderId2 = response.data.payment.id;
+
+            console.log("Order Amount:", orderAmount);
+            console.log("Order ID:", orderId);
+            // console.log("Razorpay Key:", process.env.REACT_APP_RAZORPAY_KEY); // Ensure this logs correctly
+
+            const options = {
+                key_id: process.env.REACT_APP_PUBLIC_KEY || "",
+                key_secret: process.env.REACT_APP_RAZORPAY_KEY || "", // Use env variable or fallback
+                amount: orderAmount,
+                currency: "INR",
+                name: "TerraStack",
+                image: "../../favicon.ico",
+                description: "Payment for selected plan",
+                order_id: orderId2,
+                handler: handlePaymentSuccess,
+                prefill: {
+                    name: "User Name",
+                    email: "user@example.com",
+                    contact: "9999999999",
+                },
+                theme: {
+                    color: "#007bff",
+                },
+            };
+
+            const paymentObject = new window.Razorpay(options);
+            paymentObject.open();
+        } catch (err) {
+            console.error("Error creating Razorpay order:", err);
+            alert("Failed to initiate payment");
+        } finally {
+            setLoading(false);
+        }
+    };
     return (
         <div className="plan-form">
             <h2>Purchase a Plan</h2>
@@ -265,7 +359,7 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
                             className="form-select"
                         >
                             <option value="">Select Quantity</option>
-                            <option value="10">10</option>
+                            <option value="1">1</option>
                             <option value="20">20</option>
                             <option value="30">30</option>
                             <option value="40">40</option>
@@ -286,14 +380,15 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
                         <h3>Estimated Cost</h3>
                         <p>💰 ₹{estimatedCost}</p>
                         <div className="popup-actions">
-                            <button className="popup-button" onClick={() => alert('Proceeding to Payment...')}>
-                                Proceed to Pay
+                            <button className="popup-button" onClick={handlePayment} >
+                                {loading ? "Processing..." : "Proceed to Payment"}
                             </button>
                             <button className="popup-close" onClick={() => setShowPopup(false)}>Close</button>
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
             {/* CSS Styles */}
             <style jsx>{`
                 .popup-overlay {
@@ -370,6 +465,6 @@ export default function PurchasePlanForm({ allPlans, token, setActiveSection }) 
                     to { opacity: 1; transform: scale(1); }
                 }
             `}</style>
-        </div>
+        </div >
     );
 }

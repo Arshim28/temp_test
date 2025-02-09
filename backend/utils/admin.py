@@ -3,10 +3,6 @@ from django.contrib import admin
 from .models import Plan, ReportPlan, Transaction, ReportTransaction
 
 
-
-
-
-
 class PlanAdmin(admin.ModelAdmin):
     list_display = (
         "plan_type",
@@ -19,7 +15,6 @@ class PlanAdmin(admin.ModelAdmin):
     list_filter = ("created_at", "updated_at")
     search_fields = ("entity_name", "user__username", "user__email")
     ordering = ("-created_at",)
-
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -39,7 +34,6 @@ class TransactionAdmin(admin.ModelAdmin):
     list_display = ("plan", "user", "created_at")
     list_filter = ("plan",)
     ordering = ("-created_at",)
-
 
 
 class ReportPlanAdmin(admin.ModelAdmin):
@@ -63,8 +57,6 @@ class ReportTransactionAdmin(admin.ModelAdmin):
     list_display = ("report_plan", "user", "created_at")
     list_filter = ("report_plan",)
     ordering = ("-created_at",)
-
-
 
 
 # admin.site.disable_action("delete_selected")

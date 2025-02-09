@@ -1,5 +1,6 @@
 'use client';
 import './ReportPage.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import { FaSearch } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -93,40 +94,33 @@ export default function ReportPage() {
     };
 
     const searchByLatLong = async () => {
-        const latLongInput = filters.longitude;
-        const latLongParts = latLongInput.split(',').map(part => part.trim());
+        const { latitude, longitude } = filters;
 
-        if (latLongParts.length !== 2 || isNaN(latLongParts[0]) || isNaN(latLongParts[1])) {
-            alert('Please enter a valid Latitude and Longitude in the format: "latitude,longitude"');
+        if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+            alert('Please enter valid Latitude and Longitude values.');
             return;
         }
 
-        setIsSearchingLatLong(true); // Mark that lat/long search has occurred
-        const lat = latLongParts[0];
-        const long = latLongParts[1];
+        setIsSearchingLatLong(true);
+        const latLongQuery = `${latitude},${longitude}`;
 
         try {
-            const params = new URLSearchParams({
-                lat: lat,
-                lng: long,
-            });
+            const params = new URLSearchParams({ lat: latitude, lng: longitude });
 
             const response = await fetch(`http://65.2.140.129:8000/api/plot/?${params}`);
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
             console.log('Search Results:', data);
-            // Handle the response and update the UI as necessary
-            setReports(data); // Assuming the API returns the reports based on the lat/long search
+            setReports(data);
 
         } catch (error) {
             console.error('Error searching by Latitude and Longitude:', error);
             alert('Failed to search by Latitude and Longitude. Please try again.');
         }
     };
+
 
     const downloadReportPDF = async (surveyNumber, district, taluka, village) => {
         if (!surveyNumber) {
@@ -188,58 +182,68 @@ export default function ReportPage() {
 
     const selectedDistrict = hierarchy.find(d => d.name === filters.district);
     const selectedTaluka = selectedDistrict?.talukas?.find(t => t.name === filters.taluka);
-
     return (
-        <div className="report-page-container">
+        <div className="container-fluid report-page-container">
             {showLoginPopup && (
-                <div className="popup">
-                    <div className="popup-content">
-                        <p>🔒 Please login to continue</p>
-                    </div>
+                <div className="position-fixed top-50 start-50 translate-middle bg-dark text-white p-3 rounded shadow-lg" style={{ zIndex: 1000, width: '300px' }}>
+                    <p className="text-center">🔒 Please login to continue</p>
                 </div>
             )}
 
-            <div className="top-navbar">
-                <div className="user-profile-circle">U</div>
-            </div>
+            <nav className="navbar navbar-light bg-light">
+                <div className="container-fluid">
+                    <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
+                        U
+                    </div>
+                </div>
+            </nav>
 
-            <div className="filter-section">
-                <h2 className="filter-heading">Filter Reports</h2>
-                <div className="filters-container">
-                    <select className="dropdown" disabled>
-                        <option value="Maharashtra" selected>Maharashtra</option>
-                    </select>
-                    <select className="dropdown" onChange={e => handleFilterChange('district', e.target.value)}>
-                        <option value="">Select District</option>
-                        {hierarchy.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
-                    </select>
-
-                    <select className="dropdown" onChange={e => handleFilterChange('taluka', e.target.value)} disabled={!filters.district}>
-                        <option value="">Select Taluka</option>
-                        {hierarchy.find(d => d.name === filters.district)?.talukas?.map(t => (
-                            <option key={t.code} value={t.name}>{t.name}</option>
-                        ))}
-                    </select>
-
-                    <select className="dropdown" onChange={e => handleFilterChange('village', e.target.value)} disabled={!filters.taluka}>
-                        <option value="">Select Village</option>
-                        {hierarchy.find(d => d.name === filters.district)?.talukas?.find(t => t.name === filters.taluka)?.villages?.map(v => (
-                            <option key={v.code} value={v.name}>{v.name}</option>
-                        ))}
-                    </select>
-                    <select className="dropdown" disabled>
-                        <option value="Maharashtra" selected>Coming Soon</option>
-                    </select>
-
-                    <select className="dropdown" onChange={e => handleFilterChange('khataNumber', e.target.value)} disabled={!filters.village}>
-                        <option value="">Select Khata Number</option>
-                        {khataNumbers.map(k => <option key={k} value={k}>{k}</option>)}
-                    </select>
+            <div className="card p-4 mt-3">
+                <h2 className="mb-3 text-center">Filter Reports</h2>
+                <div className="row g-3">
+                    <div className="col-md-4">
+                        <select className="form-select" disabled>
+                            <option value="Maharashtra" selected>Maharashtra</option>
+                        </select>
+                    </div>
+                    <div className="col-md-4">
+                        <select className="form-select" onChange={e => handleFilterChange('district', e.target.value)}>
+                            <option value="">Select District</option>
+                            {hierarchy.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="col-md-4">
+                        <select className="form-select" onChange={e => handleFilterChange('taluka', e.target.value)} disabled={!filters.district}>
+                            <option value="">Select Taluka</option>
+                            {hierarchy.find(d => d.name === filters.district)?.talukas?.map(t => (
+                                <option key={t.code} value={t.name}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="col-md-4">
+                        <select className="form-select" onChange={e => handleFilterChange('village', e.target.value)} disabled={!filters.taluka}>
+                            <option value="">Select Village</option>
+                            {hierarchy.find(d => d.name === filters.district)?.talukas?.find(t => t.name === filters.taluka)?.villages?.map(v => (
+                                <option key={v.code} value={v.name}>{v.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="col-md-4">
+                        <select className="form-select" disabled>
+                            <option value="Maharashtra" selected>Coming Soon</option>
+                        </select>
+                    </div>
+                    <div className="col-md-4">
+                        <select className="form-select" onChange={e => handleFilterChange('khataNumber', e.target.value)} disabled={!filters.village}>
+                            <option value="">Select Khata Number</option>
+                            {khataNumbers.map(k => <option key={k} value={k}>{k}</option>)}
+                        </select>
+                    </div>
                 </div>
 
-                <div className="download-section">
+                <div className="text-center mt-3">
                     <button
-                        className="download-button"
+                        className="btn btn-dark"
                         onClick={downloadReportBySurveyNumber}
                         disabled={!filters.district || !filters.taluka || !filters.village || !filters.khataNumber}
                     >
@@ -247,97 +251,79 @@ export default function ReportPage() {
                     </button>
                 </div>
 
-                <div className="text-center" style={{ marginTop: "15px", fontSize: "16px" }}>
+                <div className="text-center mt-3 fw-bold">
                     <p>OR</p>
                 </div>
 
-                <div className="search-lat-long-container">
+                <div className="d-flex justify-content-center gap-5">
                     <input
                         type="text"
-                        className="search-lat-long-bar"
-                        placeholder="Eg. 18.9750° N, 72.8233° E"
-                        defaultValue={filters.longitude}
+                        className="form-control mx-2"
+                        placeholder="Latitude (e.g., 18.9750)"
+                        value={filters.latitude || ""}
+                        onChange={(e) => handleFilterChange('latitude', e.target.value)}
+                    />
+                    <input
+                        type="text"
+                        className="form-control mx-2"
+                        placeholder="Longitude (e.g., 72.8233)"
+                        value={filters.longitude || ""}
                         onChange={(e) => handleFilterChange('longitude', e.target.value)}
                     />
-                    <button className="search-button-lat-long" onClick={searchByLatLong}>
+                </div>
+                <div className="text-center mt-3">
+                    <button className="btn btn-secondary" onClick={searchByLatLong}>
                         Search by Latitude and Longitude
                     </button>
                 </div>
+
+
             </div>
 
-            <div className="content-section">
+            <div className="content-section mt-4">
                 {isSearchingLatLong ? (
-                    <div className="report-list">
+                    <div className="list-group">
                         {reports.map((report, index) => (
-                            <div key={index} className="report-card-row">
-                                <div>
-                                    <h3>Khata Number: {report.khata_no}</h3>
-                                    <p>District Name: {report.district}</p>
-                                    <p>Village Name: {report.village_name}</p>
-                                    <p>Owner Name(s): {report.owner_names}</p>
+                            <div key={index} className="card mb-3 shadow-sm">
+                                <div className="card-body d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 className="card-title">Khata Number: {report.khata_no}</h5>
+                                        <p className="card-text"><strong>District Name:</strong> {report.district}</p>
+                                        <p className="card-text"><strong>Village Name:</strong> {report.village_name}</p>
+                                        <p className="card-text"><strong>Owner Name(s):</strong> {report.owner_names}</p>
+                                    </div>
+                                    <button className="btn btn-dark" onClick={() => downloadReportPDF(report.khata_no, report.district, report.taluka, report.village_name)}>
+                                        Download Report
+                                    </button>
                                 </div>
-                                <button className="download-button" onClick={() => downloadReportPDF(report.khata_no, report.district, report.taluka, report.village_name)}>
-                                    Download Report
-                                </button>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="placeholder-content">
-                        <div className="placeholder-images">
-                            <div className="image-description-container">
-                                <img
-                                    src="/india.jpeg"
-                                    alt="Placeholder 1"
-                                    className="placeholder-image"
-                                />
-                                <p className="image-description">
-                                    6 districts covered across MH, Rajasthan, Telangana so far,
-                                    and rapidly expanding.
-                                </p>
-                            </div>
-                            <div className="image-description-container">
-                                <img
-                                    src="/report.png"
-                                    alt="Placeholder 2"
-                                    className="placeholder-image"
-                                />
-                                <p className="image-description">
-                                    A sample valuation report - generated for an arbitrary khata number.
-                                </p>
-                            </div>
+                    <div className="d-flex justify-content-center gap-4">
+                        <div className="text-center">
+                            <img
+                                src="/india.jpeg"
+                                alt="Placeholder 1"
+                                className="img-fluid rounded shadow"
+                                style={{ width: "300px", height: "200px", objectFit: "cover" }}
+                            />
+                            <p className="mt-2 text-muted">6 districts covered across MH, Rajasthan, Telangana so far, and rapidly expanding.</p>
+                        </div>
+                        <div className="text-center">
+                            <img
+                                src="/report.png"
+                                alt="Placeholder 2"
+                                className="img-fluid rounded shadow"
+                                style={{ width: "300px", height: "200px", objectFit: "cover" }}
+                            />
+                            <p className="mt-2 text-muted">A sample valuation report - generated for an arbitrary khata number.</p>
                         </div>
                     </div>
                 )}
             </div>
-            {/* Styles for the popup */}
-            <style jsx>{`
-                .popup {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: rgba(0, 0, 0, 0.8);
-                    padding: 20px;
-                    border-radius: 10px;
-                    color: white;
-                    font-size: 18px;
-                    text-align: center;
-                    animation: fadeIn 0.3s ease-in-out;
-                    z-index: 1000;
-                    width: 300px;
-                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-                }
 
-                .popup-content {
-                    padding: 10px;
-                }
-
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translate(-50%, -55%); }
-                    to { opacity: 1; transform: translate(-50%, -50%); }
-                }
-            `}</style>
         </div>
     );
+
 }
