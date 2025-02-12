@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  openresty:
+    build: .
+    container_name: openresty_lua_proxy
+    ports:
+      - "8888:80"

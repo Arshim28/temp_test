@@ -231,9 +231,7 @@ def report_gen(request):
         )
 
     try:
-        query_params["khata_no"] = int(
-            query_params["khata_no"]
-        )  # Ensure khata_no is an integer
+        print("Pass")  # Ensure khata_no is an integer
     except ValueError:
         return Response(
             {"detail": "khata_no must be a valid integer"},
@@ -317,10 +315,11 @@ def get_plot_by_lat_lng(request):
     state = "maharashtra"
     if state in request.query_params:
         state = request.query_params.get("state")
-    coordinates = {"lat": float(lat), "lng": float(lng)}
-
+    coordinates = {"lng": float(lng), "lat": float(lat)}
     all_manager_obj = all_manager()
     entries = all_manager_obj.get_plot_by_lat_lng(state, coordinates)
+    print("Here")
+    print(entries)
     if not entries:
         return Response(
             {"error": "No plots found for the given coordinates"},
@@ -332,7 +331,7 @@ def get_plot_by_lat_lng(request):
             {
                 "khata_no": khata,
                 "village_name": entries[khata]["village"],
-                "owner_names": entries[khata]["owner_name_english"],
+                "owner_names": entries[khata]["owner_names"],
                 "district": entries[khata]["district"],
                 "taluka": entries[khata]["taluka"],
             }

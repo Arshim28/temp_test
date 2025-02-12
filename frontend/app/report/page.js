@@ -18,7 +18,7 @@ export default function ReportPage() {
         village: '',
         reportType: '',
         ownerName: '',
-        surveyNumber: '', // Added survey number
+        khata_no: '', // Added survey number
     });
 
     const [hierarchy, setHierarchy] = useState([]);
@@ -101,7 +101,7 @@ export default function ReportPage() {
             return;
         }
 
-        setIsSearchingLatLong(true);
+        // setIsSearchingLatLong(true);
         const latLongQuery = `${latitude},${longitude}`;
 
         try {
@@ -120,11 +120,17 @@ export default function ReportPage() {
             alert('Failed to search by Latitude and Longitude. Please try again.');
         }
     };
+    const [searchType, setSearchType] = useState("khata")
+
+    const handleSearchTypeChange = (type) => {
+        setSearchType(type);
+    };
 
 
-    const downloadReportPDF = async (surveyNumber, district, taluka, village) => {
-        if (!surveyNumber) {
-            alert("Please enter a valid Survey Number.");
+
+    const downloadReportPDF = async (khata_no, district, taluka, village) => {
+        if (!khata_no) {
+            alert("Please enter a valid Khata.");
             return;
         }
         try {
@@ -134,12 +140,12 @@ export default function ReportPage() {
                     district: district.toLowerCase(),
                     taluka: taluka.toLowerCase(),
                     village: village.toLowerCase(),
-                    survey_no: surveyNumber
+                    khata_no: khata_no
                 },
                 responseType: 'blob',
             });
 
-            saveAs(response.data, `Report_${surveyNumber}.pdf`);
+            saveAs(response.data, `Report_${khata_no}.pdf`);
         } catch (error) {
             console.error('Error downloading report:', error);
             alert('Download failed.');
@@ -158,7 +164,7 @@ export default function ReportPage() {
                 district: filters.district.toLowerCase(),
                 taluka: filters.taluka.toLowerCase(),
                 village: filters.village.toLowerCase(),
-                survey_no: filters.khataNumber
+                khata_no: filters.khataNumber
             });
 
             const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`);
@@ -183,130 +189,106 @@ export default function ReportPage() {
     const selectedDistrict = hierarchy.find(d => d.name === filters.district);
     const selectedTaluka = selectedDistrict?.talukas?.find(t => t.name === filters.taluka);
     return (
-        <div className="container-fluid report-page-container">
+        <div className="container-fluid report-page-container px-4">
             {showLoginPopup && (
                 <div className="position-fixed top-50 start-50 translate-middle bg-dark text-white p-3 rounded shadow-lg" style={{ zIndex: 1000, width: '300px' }}>
                     <p className="text-center">🔒 Please login to continue</p>
                 </div>
             )}
 
-            <nav className="navbar navbar-light bg-light">
-                <div className="container-fluid">
-                    <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style={{ width: "40px", height: "40px" }}>
-                        U
-                    </div>
-                </div>
-            </nav>
+            {/* Upper Container: Search & Filtering */}
+            <div className="card p-4 mt-3 w-100" style={{ maxWidth: "100vw" }}>
+                <h2 className="text-center">Worried about the land you're investing in? Let the Terrastack AI agent take care of it.</h2>
 
-            <div className="card p-4 mt-3">
-                <h2 className="mb-3 text-center">Filter Reports</h2>
-                <div className="row g-3">
-                    <div className="col-md-4">
-                        <select className="form-select" disabled>
-                            <option value="Maharashtra" selected>Maharashtra</option>
-                        </select>
-                    </div>
-                    <div className="col-md-4">
-                        <select className="form-select" onChange={e => handleFilterChange('district', e.target.value)}>
-                            <option value="">Select District</option>
-                            {hierarchy.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
-                        </select>
-                    </div>
-                    <div className="col-md-4">
-                        <select className="form-select" onChange={e => handleFilterChange('taluka', e.target.value)} disabled={!filters.district}>
-                            <option value="">Select Taluka</option>
-                            {hierarchy.find(d => d.name === filters.district)?.talukas?.map(t => (
-                                <option key={t.code} value={t.name}>{t.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="col-md-4">
-                        <select className="form-select" onChange={e => handleFilterChange('village', e.target.value)} disabled={!filters.taluka}>
-                            <option value="">Select Village</option>
-                            {hierarchy.find(d => d.name === filters.district)?.talukas?.find(t => t.name === filters.taluka)?.villages?.map(v => (
-                                <option key={v.code} value={v.name}>{v.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="col-md-4">
-                        <select className="form-select" disabled>
-                            <option value="Maharashtra" selected>Coming Soon</option>
-                        </select>
-                    </div>
-                    <div className="col-md-4">
-                        <select className="form-select" onChange={e => handleFilterChange('khataNumber', e.target.value)} disabled={!filters.village}>
-                            <option value="">Select Khata Number</option>
-                            {khataNumbers.map(k => <option key={k} value={k}>{k}</option>)}
-                        </select>
-                    </div>
+                {/* Selection Options */}
+                <div className="d-flex justify-content-center gap-3 mt-3">
+                    <button className={`btn ${searchType === 'khata' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setSearchType('khata')}>Khata Number</button>
+                    <button className={`btn ${searchType === 'coordinates' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setSearchType('coordinates')}>Coordinates</button>
+                    <button className={`btn ${searchType === 'owner' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setSearchType('owner')}>Owner Name</button>
                 </div>
 
-                <div className="text-center mt-3">
-                    <button
-                        className="btn btn-dark"
-                        onClick={downloadReportBySurveyNumber}
-                        disabled={!filters.district || !filters.taluka || !filters.village || !filters.khataNumber}
-                    >
-                        Download Report by Khata Number
+                {/* Filters (Only for Khata & Owner) */}
+                {(searchType === 'khata' || searchType === 'owner') && (
+                    <div className="row g-3 mt-3">
+                        <div className="col-md-3">
+                            <select className="form-select" disabled>
+                                <option selected>Maharashtra</option>
+                            </select>
+                        </div>
+                        <div className="col-md-3">
+                            <select className="form-select" onChange={e => handleFilterChange('district', e.target.value)}>
+                                <option value="">Select District</option>
+                                {hierarchy.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="col-md-3">
+                            <select className="form-select" onChange={e => handleFilterChange('taluka', e.target.value)} disabled={!filters.district}>
+                                <option value="">Select Taluka</option>
+                                {hierarchy.find(d => d.name === filters.district)?.talukas?.map(t => (
+                                    <option key={t.code} value={t.name}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="col-md-3">
+                            <select className="form-select" onChange={e => handleFilterChange('village', e.target.value)} disabled={!filters.taluka}>
+                                <option value="">Select Village</option>
+                                {hierarchy.find(d => d.name === filters.district)?.talukas?.find(t => t.name === filters.taluka)?.villages?.map(v => (
+                                    <option key={v.code} value={v.name}>{v.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                {/* Search Bar */}
+                <div className="input-group mt-3">
+                    {searchType === 'khata' && (
+                        <input type="text" className="form-control" placeholder="Enter Khata Number" onChange={(e) => handleFilterChange('khataNumber', e.target.value)} />
+                    )}
+                    {searchType === 'owner' && (
+                        <input type="text" className="form-control" placeholder="Enter Owner Name" onChange={(e) => handleFilterChange('ownerName', e.target.value)} />
+                    )}
+                    {searchType === 'coordinates' && (
+                        <>
+                            <input type="text" className="form-control" placeholder="Latitude" onChange={(e) => handleFilterChange('latitude', e.target.value)} />
+                            <input type="text" className="form-control" placeholder="Longitude" onChange={(e) => handleFilterChange('longitude', e.target.value)} />
+                        </>
+                    )}
+                    <button className="btn btn-dark" onClick={searchType === 'coordinates' ? searchByLatLong : downloadReportBySurveyNumber}>
+                        Search
                     </button>
                 </div>
 
-                <div className="text-center mt-3 fw-bold">
-                    <p>OR</p>
+                {/* Search Results */}
+                <div className="mt-3 overflow-auto" style={{ maxHeight: "250px" }}>
+                    {reports.slice(0, 5).map((report, index) => (
+                        <div key={index} className="card mb-2 shadow-sm">
+                            <div className="card-body d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 className="card-title">Khata Number: {report.khata_no}</h5>
+                                    <p className="card-text"><strong>District:</strong> {report.district}</p>
+                                    <p className="card-text"><strong>Village:</strong> {report.village_name}</p>
+                                    <p className="card-text"><strong>Owner(s):</strong> {report.owner_names}</p>
+                                </div>
+                                <button className="btn btn-dark" onClick={() => downloadReportPDF(report.khata_no, report.district, report.taluka, report.village_name)}>
+                                    Download Report
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-
-                <div className="d-flex justify-content-center gap-5">
-                    <input
-                        type="text"
-                        className="form-control mx-2"
-                        placeholder="Latitude (e.g., 18.9750)"
-                        value={filters.latitude || ""}
-                        onChange={(e) => handleFilterChange('latitude', e.target.value)}
-                    />
-                    <input
-                        type="text"
-                        className="form-control mx-2"
-                        placeholder="Longitude (e.g., 72.8233)"
-                        value={filters.longitude || ""}
-                        onChange={(e) => handleFilterChange('longitude', e.target.value)}
-                    />
-                </div>
-                <div className="text-center mt-3">
-                    <button className="btn btn-secondary" onClick={searchByLatLong}>
-                        Search by Latitude and Longitude
-                    </button>
-                </div>
-
-
             </div>
 
-            <div className="content-section mt-4">
-                {isSearchingLatLong ? (
-                    <div className="list-group">
-                        {reports.map((report, index) => (
-                            <div key={index} className="card mb-3 shadow-sm">
-                                <div className="card-body d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h5 className="card-title">Khata Number: {report.khata_no}</h5>
-                                        <p className="card-text"><strong>District Name:</strong> {report.district}</p>
-                                        <p className="card-text"><strong>Village Name:</strong> {report.village_name}</p>
-                                        <p className="card-text"><strong>Owner Name(s):</strong> {report.owner_names}</p>
-                                    </div>
-                                    <button className="btn btn-dark" onClick={() => downloadReportPDF(report.khata_no, report.district, report.taluka, report.village_name)}>
-                                        Download Report
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
+            {/* Lower Container: Placeholder Images */}
+            <div className="content-section mt-4 w-100 p-4" style={{ maxWidth: "100vw" }}>
+                {!isSearchingLatLong && (
                     <div className="d-flex justify-content-center gap-4">
                         <div className="text-center">
                             <img
                                 src="/india.jpeg"
                                 alt="Placeholder 1"
                                 className="img-fluid rounded shadow"
-                                style={{ width: "300px", height: "200px", objectFit: "cover" }}
+                                style={{ width: "100%", maxWidth: "500px", height: "auto", objectFit: "cover" }}
                             />
                             <p className="mt-2 text-muted">6 districts covered across MH, Rajasthan, Telangana so far, and rapidly expanding.</p>
                         </div>
@@ -315,15 +297,15 @@ export default function ReportPage() {
                                 src="/report.png"
                                 alt="Placeholder 2"
                                 className="img-fluid rounded shadow"
-                                style={{ width: "300px", height: "200px", objectFit: "cover" }}
+                                style={{ width: "100%", maxWidth: "500px", height: "auto", objectFit: "cover" }}
                             />
                             <p className="mt-2 text-muted">A sample valuation report - generated for an arbitrary khata number.</p>
                         </div>
                     </div>
                 )}
             </div>
-
         </div>
     );
+
 
 }
