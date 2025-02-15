@@ -104,7 +104,7 @@ export default function SigninRegisterPage() {
             return;
         }
         try {
-            await axios.post('http://65.2.140.129:8000/api/users/reset-password/', { email, password });
+            await axios.post('http://65.2.140.129:8000/api/users/forgot-password/', { email, password, verification_token: verificationToken });
             setStep('signIn');
         } catch (err) {
             setError('Error resetting password.');

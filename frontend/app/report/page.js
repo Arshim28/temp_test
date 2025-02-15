@@ -24,6 +24,8 @@ export default function ReportPage() {
     const [hierarchy, setHierarchy] = useState([]);
     const [khataNumbers, setKhataNumbers] = useState([]);
     const [reports, setReports] = useState([]);
+
+    const [reports1, setReports1] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showLoginPopup, setShowLoginPopup] = useState(false);
     const [isSearchingLatLong, setIsSearchingLatLong] = useState(false);
@@ -58,30 +60,94 @@ export default function ReportPage() {
 
     useEffect(() => {
         if (filters.district && filters.taluka && filters.village) {
-            const fetchKhataNumbers = async () => {
-                try {
-                    const res = await axios.get(`http://65.2.140.129:8000/api/khata-numbers/`, {
-                        params: {
-                            district: filters.district,
-                            taluka_name: filters.taluka,
-                            village_name: filters.village
-                        }
-                    });
-
-                    console.log('Khata Numbers Response:', res.data);
-
-                    // Extract khata_numbers array and set state
-                    setKhataNumbers(Array.isArray(res.data.khata_numbers) ? res.data.khata_numbers : []);
-                } catch (error) {
-                    console.error('Error fetching khata numbers:', error);
-                    setKhataNumbers([]); // Ensure fallback to an empty array
-                }
-            };
-            fetchKhataNumbers();
+            fetchKhataNumbersAndReports();
         } else {
-            setKhataNumbers([]); // Reset when filters change
+            setKhataNumbers([]);
+            setReports([]); // Reset reports when filters change
         }
     }, [filters.district, filters.taluka, filters.village]);
+
+    // useEffect(() => {
+    //     if (filters.district && filters.taluka && filters.village) {
+    //         const fetchKhataNumbers = async () => {
+    //             try {
+    //                 const res = await axios.get(`http://65.2.140.129:8000/api/khata-numbers/`, {
+    //                     params: {
+    //                         district: filters.district,
+    //                         taluka_name: filters.taluka,
+    //                         village_name: filters.village
+    //                     }
+    //                 });
+
+    //                 console.log('Khata Numbers Response:', res.data);
+
+    //                 // Extract khata_numbers array and set state
+    //                 setKhataNumbers(Array.isArray(res.data.khata_numbers) ? res.data.khata_numbers : []);
+
+    //                 const params = new URLSearchParams({
+    //                     district: filters.district,
+    //                     taluka: filters.taluka,
+    //                     village: filters.village
+    //                 });
+
+    //                 const resp = await fetch(`http://65.2.140.129:8000/api/khata-preview/?${params}`);
+
+    //                 if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+
+    //                 console.log('Khata Preview Response:', resp);
+
+    //                 const data = await resp.json();
+    //                 console.log('Search Ress:', data);
+    //                 setReports1(data);
+    //                 console.log('Khata:', reports1);
+
+
+    //             } catch (error) {
+    //                 console.error('Error fetching khata numbers:', error);
+    //                 setKhataNumbers([]); // Ensure fallback to an empty array
+    //             }
+    //         };
+    //         fetchKhataNumbers();
+    //     } else {
+    //         setKhataNumbers([]); // Reset when filters change
+    //     }
+    // }, [filters.district, filters.taluka, filters.village]);
+
+    const fetchKhataNumbersAndReports = async () => {
+        try {
+            // setLoading(true);
+            const res = await axios.get(`http://65.2.140.129:8000/api/khata-numbers/`, {
+                params: {
+                    district: filters.district,
+                    taluka_name: filters.taluka,
+                    village_name: filters.village
+                }
+            });
+
+            console.log("Khata Numbers Response:", res.data);
+            setKhataNumbers(Array.isArray(res.data.khata_numbers) ? res.data.khata_numbers : []);
+
+            const params = new URLSearchParams({
+                district: filters.district,
+                taluka: filters.taluka,
+                village: filters.village
+            });
+
+            const resp = await fetch(`http://65.2.140.129:8000/api/khata-preview/?${params}`);
+            if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+
+            const data = await resp.json();
+            console.log("Khata Preview Response:", data);
+            setReports(data); // Set reports from khata preview API
+            // setLoading(false);
+
+        } catch (error) {
+            console.error("Error fetching khata numbers:", error);
+            setKhataNumbers([]);
+            setReports([]);
+        }
+    };
+
 
     const handleFilterChange = (field, value) => {
         setFilters(prev => ({
@@ -188,6 +254,9 @@ export default function ReportPage() {
 
     const selectedDistrict = hierarchy.find(d => d.name === filters.district);
     const selectedTaluka = selectedDistrict?.talukas?.find(t => t.name === filters.taluka);
+
+    if (loading) return <LoadingScreen />;
+
     return (
         <div className="container-fluid report-page-container px-4">
             {showLoginPopup && (
@@ -204,7 +273,7 @@ export default function ReportPage() {
                 <div className="d-flex justify-content-center gap-3 mt-3">
                     <button className={`btn ${searchType === 'khata' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setSearchType('khata')}>Khata Number</button>
                     <button className={`btn ${searchType === 'coordinates' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setSearchType('coordinates')}>Coordinates</button>
-                    <button className={`btn ${searchType === 'owner' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setSearchType('owner')}>Owner Name</button>
+                    {/* <button className={`btn ${searchType === 'owner' ? 'btn-dark' : 'btn-outline-dark'}`} onClick={() => setSearchType('owner')}>Owner Name</button> */}
                 </div>
 
                 {/* Filters (Only for Khata & Owner) */}
@@ -242,8 +311,21 @@ export default function ReportPage() {
 
                 {/* Search Bar */}
                 <div className="input-group mt-3">
+
                     {searchType === 'khata' && (
-                        <input type="text" className="form-control" placeholder="Enter Khata Number" onChange={(e) => handleFilterChange('khataNumber', e.target.value)} />
+                        <div className="col-md-3 d-flex align-items-center w-100">
+                            <select className="form-select me-2 flex-grow-1"
+                                onChange={e => handleFilterChange('KhataNumber', e.target.value)}
+                                disabled={!filters.village}
+                            >
+                                <option value="">Select Khata Number</option>
+                                {khataNumbers.map(k => <option key={k} value={k}>{k}</option>)}
+                            </select>
+                            <button className="btn btn-dark">Download Report</button>
+                        </div>
+
+
+
                     )}
                     {searchType === 'owner' && (
                         <input type="text" className="form-control" placeholder="Enter Owner Name" onChange={(e) => handleFilterChange('ownerName', e.target.value)} />
@@ -254,9 +336,14 @@ export default function ReportPage() {
                             <input type="text" className="form-control" placeholder="Longitude" onChange={(e) => handleFilterChange('longitude', e.target.value)} />
                         </>
                     )}
-                    <button className="btn btn-dark" onClick={searchType === 'coordinates' ? searchByLatLong : downloadReportBySurveyNumber}>
-                        Search
-                    </button>
+                    {searchType === 'coordinates' && (
+                        <>
+                            <button className="btn btn-dark" onClick={searchType === 'coordinates' ? searchByLatLong : downloadReportBySurveyNumber}>
+                                Search
+                            </button>
+                        </>
+                    )}
+
                 </div>
 
                 {/* Search Results */}

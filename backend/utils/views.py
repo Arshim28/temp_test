@@ -137,6 +137,7 @@ class KhataNumbersView(View):
                     )
                 ]
             )
+            print(len(khata_numbers))
             return JsonResponse({"khata_numbers": khata_numbers})
         except Exception as e:
             return JsonResponse(
@@ -400,9 +401,23 @@ def get_khata_preview(request):
         )
 
     mh_all_manager_obj = mh_all_manager()
-    data = mh_all_manager_obj.get_khata_preview_from_village(district, taluka, village)
+    entries = mh_all_manager_obj.get_khata_preview_from_village(district, taluka, village)
 
-    return Response(data, status=status.HTTP_200_OK)
+    details = []
+    for khata in entries:
+        details.append(
+            {
+                "khata_no": khata,
+                "village_name": entries[khata]["village"],
+                "owner_names": entries[khata]["owner_names"],
+                "district": entries[khata]["district"],
+                "taluka": entries[khata]["taluka"],
+            }
+        )
+
+
+    print("[INFO]: Khata Preview, preview-entries count: ", len(details))
+    return Response(details, status=status.HTTP_200_OK)
 
 
 

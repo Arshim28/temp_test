@@ -14,12 +14,11 @@ export default function MapView() {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [showDistrictPopup, setShowDistrictPopup] = useState(false);
   const metadataRef = useRef(null);
-  const [mapStyle, setMapStyle] = useState('satellite');
+  const [mapStyle, setMapStyle] = useState('base'); // Default is base (street map)
   const [expandedSidebar, setExpandedSidebar] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [popupInfo, setPopupInfo] = useState(null);
   const router = useRouter();
-
 
   const handleUnauthorizedAccess = () => {
     setShowLoginPopup(true);
@@ -29,6 +28,7 @@ export default function MapView() {
     }, 1000);
   };
   const token = localStorage.getItem('authToken');
+  
   // Fetch layers
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -64,7 +64,7 @@ export default function MapView() {
     fetchDistricts();
   }, []);
 
-  // Map style setup
+  // Map style setup (recreates map when mapStyle changes)
   useEffect(() => {
     const mapStyles = {
       base: {
@@ -146,8 +146,6 @@ export default function MapView() {
     if (!mapRef.current) return;
     const map = mapRef.current;
 
-
-
     // Add layer only if it's not already added
     if (!activeLayers.find(activeLayer => activeLayer.id === layer.id)) {
       try {
@@ -158,14 +156,11 @@ export default function MapView() {
         });
         console.log("Response Object:", res);
 
-
-
         // Save the token for later use
         console.log('Response:', res);
         const tileUrl = await res.json().tile_url;
 
         console.log('Tile URL:', tileUrl);
-
 
         const response = await fetch(`http://65.2.140.129:7800/${layer.id}.json`);
         if (!response.ok) throw new Error('Failed to fetch metadata');
@@ -220,7 +215,6 @@ export default function MapView() {
         paint: _paint
       });
 
-
       map.on('click', `layer-${layer.id}`, (e) => {
         const feature = e.features[0];
         if (feature) {
@@ -257,7 +251,6 @@ export default function MapView() {
           });
         }
       });
-
 
       setActiveLayers(prevState => [...prevState, layer]);  // Add the layer to active layers state
     }
@@ -311,20 +304,23 @@ export default function MapView() {
         </div>
       )}
       <div className={`sidebar ${expandedSidebar ? 'expanded' : ''}`}>
-        <button className="navbar-icon" onClick={handleLoadLayersClick}>
-          <span role="img" aria-label="layers">🗂️ Load Layers</span>
-        </button>
 
         <div className="map-style-selector">
-          <h3>Select Map Style</h3>
           <select
             value={mapStyle}
             onChange={(e) => setMapStyle(e.target.value)}
           >
             <option value="base">Street Map</option>
             <option value="satellite">Satellite</option>
+            {/* Optionally, add hybrid view if desired:
+            <option value="hybrid">Hybrid</option>
+            */}
           </select>
         </div>
+
+        <button className="navbar-icon" onClick={handleLoadLayersClick}>
+          <span role="img" aria-label="layers">🗂️ Load Layers</span>
+        </button>
 
         {showDistrictPopup && (
           <div className="district-selector">
@@ -363,13 +359,9 @@ export default function MapView() {
         <button className="navbar-icon" onClick={() => router.push('/dashboard')}>
           <span role="img" aria-label="dashboard">🏠 Go to Dashboard</span>
         </button>
-
-
       </div>
 
-
       <div className="map-wrapper">
-
         <div ref={mapContainerRef} style={{ width: '100%', height: '100vh' }} />
 
         {popupInfo && (
@@ -393,40 +385,36 @@ export default function MapView() {
             </div>
           </div>
         )}
-
-
       </div>
       {/* Styles for the popup */}
       <style jsx>{`
-                .popup {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: rgba(0, 0, 0, 0.8);
-                    padding: 20px;
-                    border-radius: 10px;
-                    color: white;
-                    font-size: 18px;
-                    text-align: center;
-                    animation: fadeIn 0.3s ease-in-out;
-                    z-index: 1000;
-                    width: 300px;
-                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-                }
+        .popup {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(0, 0, 0, 0.8);
+          padding: 20px;
+          border-radius: 10px;
+          color: white;
+          font-size: 18px;
+          text-align: center;
+          animation: fadeIn 0.3s ease-in-out;
+          z-index: 1000;
+          width: 300px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
 
-                .popup-content {
-                    padding: 10px;
-                    color: black;
-                }
+        .popup-content {
+          padding: 10px;
+          color: black;
+        }
 
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translate(-50%, -55%); }
-                    to { opacity: 1; transform: translate(-50%, -50%); }
-                }
-            `}</style>
-
-
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translate(-50%, -55%); }
+          to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+      `}</style>
     </div>
   );
 }

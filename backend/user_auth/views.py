@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response
+from rest_framework.response import Response, Serializer
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 
@@ -35,10 +35,6 @@ class RegistrationAPIView(APIView):
     renderer_classes = (UserJSONRenderer,)
 
     def post(self, request):
-
-        import json
-        # logger.info(json.dumps(request.data))
-
 
         user_data = request.data.get("user", {})
         email = user_data.get("email")
@@ -97,6 +93,42 @@ class RegistrationAPIView(APIView):
                 {"error": "Invalid or expired verification token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+class ForgotPassword(APIView):
+    permission_classes= (AllowAny,)
+    serializer_class = UserSerializer
+
+    def post(self, request):
+        user_data = request.data
+        email = user_data.get("email")
+        password = user_data.get("password")
+        verification_token = user_data.get("verification_token")
+
+        OTPVerification.objects.filter(email=email, token_expires_at__lt=now()).delete()
+
+        if not CustomUser.objects.filter(email=email).exists():
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            otp_entry = OTPVerification.objects.get(email=email, verification_token=verification_token, is_verified=True)
+            user = CustomUser.objects.get(email=email)
+            user.set_password(password)
+            user.save()
+            otp_entry.delete()
+            return Response(
+                {"message": "Password reset successful"},
+                status=status.HTTP_200_OK,
+            )
+
+        except OTPVerification.DoesNotExist:
+            return Response(
+                {"error": "Invalid or expired verification token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 
 
 class LoginAPIView(APIView):
