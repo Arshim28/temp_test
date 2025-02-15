@@ -19,7 +19,7 @@ export default function Dashboard() {
     const [activeSection, setActiveSection] = useState('dashboard');
     const [showLoginPopup, setShowLoginPopup] = useState(false);
     const router = useRouter();
-
+    const [loadingAllPlans, setLoadingAllPlans] = useState(false);
     const token = localStorage.getItem('authToken');
     const handleUnauthorizedAccess = () => {
         setShowLoginPopup(true);
@@ -62,6 +62,7 @@ export default function Dashboard() {
     }, [activeSection]); // ✅ Triggers whenever route changes
 
     const handleAllPlansClick = async () => {
+        setLoadingAllPlans(true);
         try {
             const plansResponse = await axios.get('http://65.2.140.129:8000/api/maharashtra_metadata/', {
                 headers: { Authorization: `Bearer ${token}` },
@@ -70,6 +71,8 @@ export default function Dashboard() {
             setActiveSection('allPlans'); // Show form
         } catch (err) {
             setError(err.message || 'Failed to fetch all plans.');
+        } finally {
+            setLoadingAllPlans(false);
         }
     };
 
@@ -100,11 +103,19 @@ export default function Dashboard() {
                 />
                 <div className="dashboard-middle">
                     <h2>Welcome to your Terrastack account!</h2>
-                    {activeSection === 'dashboard' && <PlanList plans={plans} />}
-                    {activeSection === 'allPlans' && allPlans && (
-                        <PurchasePlanForm allPlans={allPlans} token={token} setActiveSection={setActiveSection} />
+                    {loadingAllPlans ? (
+                        <LoadingScreen message="Loading all available plans..." />
+
+                    ) : (
+                        <>
+                            {activeSection === 'dashboard' && <PlanList plans={plans} />}
+                            {activeSection === 'allPlans' && allPlans && (
+                                <PurchasePlanForm allPlans={allPlans} token={token} setActiveSection={setActiveSection} />
+                            )}
+                        </>
                     )}
                 </div>
+
                 <RightSidebar />
             </div>
             {/* Styles for the popup */}

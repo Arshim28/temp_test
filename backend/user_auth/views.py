@@ -35,6 +35,11 @@ class RegistrationAPIView(APIView):
     renderer_classes = (UserJSONRenderer,)
 
     def post(self, request):
+
+        import json
+        # logger.info(json.dumps(request.data))
+
+
         user_data = request.data.get("user", {})
         email = user_data.get("email")
         verification_token = user_data.get("verification_token")
@@ -60,9 +65,16 @@ class RegistrationAPIView(APIView):
                 serializer.save()
 
                 profile_data = user_data["profile"]
-                logger.info(request.data)
                 profile_data["user"] = CustomUser.objects.get(email=email).id
+                profile_data["city"] = user_data["city"]
+                profile_data["district"] = user_data["district"]
+                profile_data["state"] = user_data["state"]
+                profile_data["pin_code"] = user_data["postalCode"]
+                profile_data["village"] = user_data["village"]
+
+
                 profile_serializer = ProfileSerializer(data=profile_data)
+
                 profile_serializer.is_valid(raise_exception=True)
                 profile_serializer.save()
 
@@ -77,10 +89,10 @@ class RegistrationAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
+            print("[INFO]: error in registration: ", str(e))
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         except OTPVerification.DoesNotExist:
-            print("error: Invalid or expired verification token")
             return Response(
                 {"error": "Invalid or expired verification token"},
                 status=status.HTTP_400_BAD_REQUEST,

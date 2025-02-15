@@ -1,5 +1,14 @@
+from inspect import ArgSpec
+from math import dist
+from contextily import tile
+from django.forms.fields import re
+import jwt
+
+from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 
+from pandas.io.formats.format import _trim_zeros_single_float
+from reportlab.lib.colors import cadetblue
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView, View
@@ -21,9 +30,10 @@ from .models import (
     ReportPlan,
     MaharashtraMetadata,
 )
-from .helpers import get_metadata_state
+from .helpers import get_metadata_state, has_plan_access
 
-from land_value.data_manager import all_manager
+# from land_value.data_manager.all_manager import all_manager
+from land_value.data_manager.all_manager.mh_all_manager import mh_all_manager
 
 try:
     from terra_utils import Config
@@ -114,15 +124,13 @@ class KhataNumbersView(View):
             )
 
         try:
-            all_manager_obj = all_manager()
-            data_manager = all_manager_obj.textual_data_manager
-
+            all_manager_obj = mh_all_manager()
             khata_numbers = sorted(
                 [
                     int(i)
                     for i in list(
                         set(
-                            data_manager.get_khata_from_village(
+                            all_manager_obj.get_khata_from_village(
                                 district, taluka_name, village_name
                             )
                         )
@@ -211,8 +219,7 @@ class MaharashtraMetadataList(APIView):
 
 @api_view(["GET"])
 def maharashtra_hierarchy(request):
-    request_params = request.GET
-    hierarchy = get_metadata_state(request_params)
+    hierarchy = get_metadata_state()
     return JsonResponse(hierarchy, status=200, safe=False)
 
 
@@ -246,8 +253,9 @@ def report_gen(request):
             if key in string_params
         }
     )
+    query_params.pop("state")
 
-    all_manager_obj = all_manager()
+    all_manager_obj = mh_all_manager()
     pdf = all_manager_obj.get_plot_pdf_by_khata(**query_params)
 
     if not pdf:
@@ -273,15 +281,15 @@ def report_gen3(request):
         key: request.query_params.get(key, "").strip().lower()
         for key in ["state", "district", "taluka", "village"]
     }
-    survey_no = request.query_params.get("survey_no")
+    khata_no = request.query_params.get("khata_no")
 
-    if not survey_no or any(not v for v in params.values()):
+    if not khata_no or any(not v for v in params.values()):
         return Response(
             {"detail": "Invalid query parameters"}, status=status.HTTP_400_BAD_REQUEST
         )
 
     try:
-        survey_no = int(survey_no)
+        khata_no = int(khata_no)
     except ValueError:
         return Response(
             {"detail": "Invalid survey number"}, status=status.HTTP_400_BAD_REQUEST
@@ -295,17 +303,55 @@ def report_gen3(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    pdf = all_manager().get_plot_pdf_by_khata(**params, khata_no=survey_no)
+    params.pop("state")
+
+    all_manager_obj = mh_all_manager()
+    pdf = all_manager_obj.get_plot_pdf_by_khata(**params, khata_no=khata_no)
 
     if pdf:
         ReportTransaction.objects.create(user=user, plan=valid_plans[0])
         response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{survey_no}_plot.pdf"'
+        response["Content-Disposition"] = f'attachment; filename="{khata_no}_plot.pdf"'
         return response
 
     return Response(
         {"error": "Failed to generate report"}, status=status.HTTP_400_BAD_REQUEST
     )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_tile_url(request):
+
+    # TODO: Need to pass the table id as well in encrypted form to restrict access.
+    user = request.user
+    table = request.query_params.get("table") or "jalgaon.parola_cadastrals"
+    table=table.strip()
+
+    if has_plan_access(user,table):
+        print("[INFO]: User has access to table")
+        l_id = table
+        SECRET_KEY = "tudu"  # FIXME: Load the secret key from the config
+
+        payload = {
+        "uid": str(user.id),
+        "lid": l_id,
+        "exp": timezone.now() + timezone.timedelta(hours=1),
+        "iat": timezone.now(),
+        }
+
+        # Generate the JWT token
+        token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+        tile_url = f"http://65.2.140.129:8088/{l_id}/{{z}}/{{x}}/{{y}}.pbf?token={token}"
+
+        print(tile_url)
+        return Response({"tile_url":tile_url}, status=status.HTTP_200_OK)
+    else:
+        return Response(
+            {"error": "Unauthorized"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
 
 @api_view(["GET"])
@@ -316,9 +362,8 @@ def get_plot_by_lat_lng(request):
     if state in request.query_params:
         state = request.query_params.get("state")
     coordinates = {"lng": float(lng), "lat": float(lat)}
-    all_manager_obj = all_manager()
-    entries = all_manager_obj.get_plot_by_lat_lng(state, coordinates)
-    print("Here")
+    cad_manager = mh_all_manager().cadastral_manager
+    entries = cad_manager.get_plot_by_lat_lng(coordinates, limit=10)
     print(entries)
     if not entries:
         return Response(
@@ -338,3 +383,31 @@ def get_plot_by_lat_lng(request):
         )
 
     return Response(details, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+def get_khata_preview(request):
+    """Get Khata Preview accepts district, taluka, village"""
+    state = "maharashtra"
+    district = request.query_params.get("district")
+    taluka = request.query_params.get("taluka")
+    village = request.query_params.get("village")
+
+    if not all([state, district, taluka, village]):
+        return Response(
+            {"error": "Missing required parameters"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    mh_all_manager_obj = mh_all_manager()
+    data = mh_all_manager_obj.get_khata_preview_from_village(district, taluka, village)
+
+    return Response(data, status=status.HTTP_200_OK)
+
+
+
+@api_view(["GET"])
+def test_has_access(request):
+    user = request.user
+    args = []
+    return has_plan_access(user, args)

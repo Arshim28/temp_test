@@ -1,16 +1,16 @@
 """Module containing helper functions for the backend."""
 
-from land_value.data_manager import all_manager
+
+from land_value.data_manager.all_manager.mh_all_manager import mh_all_manager
+
 from utils.models import Plan, ReportPlan
 from django.db.models import Sum
 
 
-def get_metadata_state(args):
-    state = "maharashtra"
-    if "state" in args:
-        state = args["state"]
-    all_manager_obj = all_manager()
-    entries = all_manager_obj.get_active_metadata(state)
+def get_metadata_state():
+
+    mh_all_manager_obj = mh_all_manager()
+    entries = mh_all_manager_obj.get_active_metadata()
 
     hierarchy = {}
 
@@ -46,28 +46,55 @@ def get_metadata_state(args):
     return result
 
 
-def has_plan_access(user, args) -> bool:
+def has_plan_access(user, table) -> bool:
     """Check if the user has access to the requested data."""
+
+    metadata = {d["name"]: d for d in get_metadata_state()}
+
+    district = table.split(".", 1)[0] if "." in table else None
+    taluka = None
+    layer = None
+    if district and "_" in district:
+        taluka = district.split("_")[0]
+        layer = district.split("_")[1]
+        district = None
+
+    args = {}
+    if district:
+        district = district.upper()
+        taluka = table.split(".")[1].split("_")[0]
+        if taluka in metadata[district]["talukas"]:
+            args = {
+                "entity_type": "taluka",
+                "entity_name": taluka
+            }
+        else:
+            args = {
+                "entity_type": "district",
+                "entity_name": district
+            }
+
+
 
     plans = Plan.objects.filter(user=user)
     if not plans.exists():
         return False
 
-    metadata = {d["name"]: d for d in get_metadata_state({"state": "maharashtra"})}
 
     village_accessible, talukas_accessible, districts_accessible = set(), set(), set()
 
     for plan in plans:
         entity_name = plan.entity_name
-        if plan.entity_type == "village":
+        print(entity_name)
+        if plan.plan_type == "Village":
             village_accessible.add(entity_name)
-        elif plan.entity_type == "taluka":
+        elif plan.plan_type == "Taluka":
             talukas_accessible.add(entity_name)
             for district in metadata.values():
                 for taluka in district["talukas"]:
                     if taluka["name"] == entity_name:
                         village_accessible.update(v["name"] for v in taluka["villages"])
-        elif plan.entity_type == "district":
+        elif plan.plan_type == "District":
             districts_accessible.add(entity_name)
             if entity_name in metadata:
                 for taluka in metadata[entity_name]["talukas"]:
@@ -79,6 +106,7 @@ def has_plan_access(user, args) -> bool:
         "taluka": talukas_accessible,
         "district": districts_accessible,
     }
+
 
     return args["entity_name"] in access_map.get(args["entity_type"], set())
 
@@ -106,3 +134,10 @@ def has_report_access(user, quantity):
         quantity -= deduct
 
     return True, plans_quantity
+
+
+if __name__ == "__main__":
+
+    user = "random"
+    quantity = 10
+    print(has_plan_access(user, quantity))

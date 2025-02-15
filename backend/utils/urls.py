@@ -1,4 +1,5 @@
 from django.urls import path
+from scipy.sparse.linalg._eigen import test
 from .views import (
     create_plan,
     create_report_plan,
@@ -8,12 +9,16 @@ from .views import (
     RetrieveReportPlanView,
     ListTransactionsView,
     RetrieveTransactionView,
+    get_tile_url,
     report_gen,
     report_gen3,
     MaharashtraMetadataList,
     maharashtra_hierarchy,
     KhataNumbersView,
     get_plot_by_lat_lng,
+    get_khata_preview,
+    test_has_access,
+    # get_access_token
 )
 
 urlpatterns = [
@@ -45,4 +50,7 @@ urlpatterns = [
     path("maharashtra-hierarchy/", maharashtra_hierarchy, name="maharashtra_hierarchy"),
     path("khata-numbers/", KhataNumbersView.as_view(), name="khata_numbers"),
     path("plot/", get_plot_by_lat_lng, name="get_plot_by_lat_lng"),
+    path("get_tile_url/", get_tile_url, name="proxy_access_token"),
+    path("khata-preview/", get_khata_preview, name="khata_preview"),
+    path("test", test_has_access, name="test_has_access")
 ]

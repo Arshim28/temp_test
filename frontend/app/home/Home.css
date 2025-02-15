@@ -1,215 +1,94 @@
-html,
+/* Apply White Gradient to the Whole Page */
 body {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-main {
-    flex-grow: 1;
-    /* This ensures main takes up all available space */
-    width: 100%;
-    height: max-content;
-}
-
-/* Navbar Section */
-.navbar-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: 8%;
-    padding: 0 1rem;
-    color: white;
-}
-
-.navbar-container h1 {
-    font-size: 2rem;
-    margin: 0;
-    color: #ffffff;
-}
-
-.navbar-button {
-    color: white;
-    background: none;
-    border: none;
-    text-decoration: none;
-    cursor: pointer;
-    margin-right: 20px;
-    font-size: 1rem;
-}
-
-.navbar-link {
-    margin-right: 20px;
-    color: white;
-    text-decoration: none;
-    font-size: 1rem;
-}
-
-.navbar-link:hover {
-    text-decoration: underline;
-}
-
-/* Welcome Section */
-.welcome-section {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 80%;
-    background-color: #f8f9fa;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.welcome-content h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    color: #333;
-}
-
-.welcome-content p {
-    font-size: 1.2rem;
-    margin-bottom: 1.5rem;
-    color: #555;
-}
-
-.primary-button {
-    background-color: #007bff;
-    color: #fff;
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.primary-button:hover {
-    background-color: #0056b3;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-}
-
-/* Features Section */
-.features {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
-    padding: 3%;
-    background-color: #f8f9fa;
-}
-
-.feature-card {
-    background-color: #ffffff;
-    width: 90%;
-    max-width: 200px;
-    margin: 1%;
-    padding: 5%;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    text-align: center;
-    transition: box-shadow 0.3s ease, transform 0.2s ease;
-}
-
-.feature-card:hover {
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-    transform: translateY(-3px);
-}
-
-/* Footer Section */
-footer {
-    text-align: center;
-    padding: 2%;
-    background-color: #007bff;
-    color: white;
-}
-
-/* Responsive Design */
-@media (max-width: 1300px) {
-    .navbar-container {
-        height: 10%;
-    }
-
-    .welcome-section {
-        height: 50%;
-    }
-
-    .features {
-        padding: 5%;
-    }
-
-    .feature-card {
-        width: 100%;
-    }
-
-    footer {
-        padding: 3%;
-    }
-}
-
-@media (max-width: 480px) {
-    .navbar-container {
-        height: 12%;
-    }
-
-    .welcome-section {
-        height: 40%;
-    }
-
-    .welcome-content h1 {
-        font-size: 2rem;
-    }
-
-    .welcome-content p {
-        font-size: 1rem;
-    }
-
-    .primary-button {
-        padding: 0.6rem 1.2rem;
-    }
-
-    .features {
-        flex-direction: column;
-        align-items: center;
-    }
-
-    footer {
-        padding: 4%;
-    }
-}
-
-html,
-body {
-    height: 100%;
+    background: linear-gradient(to right, white, #f8f9fa);
+    /* White to light white gradient */
     margin: 0;
     padding: 0;
 }
 
-main {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+/* Navbar with Dark Bottom Line */
+.navbar {
+    border-bottom: 2px solid black;
 }
 
-.welcome-section {
-    flex-grow: 1;
-    /* Ensures the welcome section takes remaining space */
+.navbar span {
+    margin-left: 2%;
+    font-size: 24px;
+}
+
+.navbar button {
+    margin-right: 2%;
+    width: 10%;
+    border-radius: 25px;
+}
+
+/* Hero Section */
+.hero-section {
+    position: relative;
+    height: 90vh;
     display: flex;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 50px 20px;
+    overflow: hidden;
 }
 
-footer {
-    background-color: #212529;
-    color: white;
+/* Background Image Only on the Right Side */
+.image-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    background: url('../../public/landing.png') center/cover no-repeat;
+}
+
+/* Content Wrapper (Starts from Left, Extends Over Image) */
+.content-wrapper {
+    position: relative;
+    z-index: 2;
+    width: 55%;
+    padding-left: 10%;
+    padding-right: 2%;
+    color: black;
+}
+
+/* Optimized Font Sizes */
+.content-wrapper h1 {
+    font-size: 46px;
+    font-weight: 550;
+    /* Same as fw-bold but optimized */
+}
+
+.content-wrapper p.lead {
+    font-size: 20px;
+    font-weight: 450;
+}
+
+
+/* Info Box */
+.info-box {
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 12px;
+    max-width: 450px;
+    margin-top: 5%;
+    margin-left: 2%;
+    padding: 1.5rem;
+
+    /* Centering Content */
     text-align: center;
-    padding: 15px;
-    margin-top: auto;
-    /* Pushes the footer to the bottom */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Info Box Title */
+.info-box h3 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+/* Info Box Text */
+.info-box p {
+    font-size: 16px;
+    font-weight: 500;
 }

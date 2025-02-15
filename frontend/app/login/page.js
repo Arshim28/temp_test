@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css'; // Bootstrap import
+import LoadingScreen from '../loader/page';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
 
     const handleLogin = async (e) => {
@@ -21,12 +23,17 @@ export default function LoginPage() {
             const { token } = response.data;
             if (token) {
                 localStorage.setItem('authToken', token);
-                router.push('/dashboard');
+                setLoading(true); // Only show loading screen on success
+                setTimeout(() => router.push('/dashboard'), 100);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
         }
     };
+
+    if (loading) {
+        return <LoadingScreen message="Logging in, please wait..." />;
+    }
 
     return (
         <div className="container d-flex justify-content-center align-items-center vh-100">

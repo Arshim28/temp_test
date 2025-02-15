@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import "./LoadingScreen.css";
 
-export default function LoadingScreen() {
+export default function LoadingScreen({ message = "Fetching data, please wait..." }) {
     return (
         <div className="loading-container">
             <motion.div
@@ -9,7 +9,7 @@ export default function LoadingScreen() {
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
             />
-            <p className="loading-text">Fetching data, please wait...</p>
+            <p className="loading-text">{message}</p>
         </div>
     );
 }

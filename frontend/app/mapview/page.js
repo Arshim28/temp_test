@@ -14,7 +14,7 @@ export default function MapView() {
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [showDistrictPopup, setShowDistrictPopup] = useState(false);
   const metadataRef = useRef(null);
-  const [mapStyle, setMapStyle] = useState('base');
+  const [mapStyle, setMapStyle] = useState('satellite');
   const [expandedSidebar, setExpandedSidebar] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [popupInfo, setPopupInfo] = useState(null);
@@ -72,7 +72,7 @@ export default function MapView() {
         sources: {
           'basemap': {
             type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tiles: ['https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}'],
             tileSize: 256
           }
         },
@@ -87,7 +87,7 @@ export default function MapView() {
         sources: {
           'satellite': {
             type: 'raster',
-            tiles: ['https://{a-c}.basemaps.cartocdn.com/rastertiles/satellite/{z}/{x}/{y}.png'],
+            tiles: ['https://www.google.com/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}'],
             tileSize: 256
           }
         },
@@ -102,7 +102,7 @@ export default function MapView() {
         sources: {
           'hybrid': {
             type: 'vector',
-            tiles: ['https://basemaps.arcgis.com/arcgis/rest/services/World_Basemap_v2/VectorTileServer/tile/{z}/{x}/{y}.pbf'],
+            tiles: ['https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'],
             minzoom: 0,
             maxzoom: 16
           }
@@ -146,9 +146,27 @@ export default function MapView() {
     if (!mapRef.current) return;
     const map = mapRef.current;
 
+
+
     // Add layer only if it's not already added
     if (!activeLayers.find(activeLayer => activeLayer.id === layer.id)) {
       try {
+        // Fetch tile URL token from API
+        console.log("Fetching tile URL...");
+        const res = await fetch(`http://65.2.140.129:8001/api/get_tile_url/?table=${layer.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log("Response Object:", res);
+
+
+
+        // Save the token for later use
+        console.log('Response:', res);
+        const tileUrl = await res.json().tile_url;
+
+        console.log('Tile URL:', tileUrl);
+
+
         const response = await fetch(`http://65.2.140.129:7800/${layer.id}.json`);
         if (!response.ok) throw new Error('Failed to fetch metadata');
         const data = await response.json();
@@ -189,7 +207,7 @@ export default function MapView() {
 
       map.addSource(layer.id, {
         type: 'vector',
-        tiles: [`http://65.2.140.129:7800/${layer.id}/{z}/{x}/{y}.pbf`],
+        tiles: [tileUrl],
         minzoom: 0,
         maxzoom: 22
       });
@@ -296,6 +314,17 @@ export default function MapView() {
         <button className="navbar-icon" onClick={handleLoadLayersClick}>
           <span role="img" aria-label="layers">🗂️ Load Layers</span>
         </button>
+
+        <div className="map-style-selector">
+          <h3>Select Map Style</h3>
+          <select
+            value={mapStyle}
+            onChange={(e) => setMapStyle(e.target.value)}
+          >
+            <option value="base">Street Map</option>
+            <option value="satellite">Satellite</option>
+          </select>
+        </div>
 
         {showDistrictPopup && (
           <div className="district-selector">
