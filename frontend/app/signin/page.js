@@ -45,14 +45,21 @@ export default function SigninRegisterPage() {
             const response = await axios.post('http://65.2.140.129:8000/api/users/login/', {
                 user: { email, password },
             });
-            localStorage.setItem('authToken', response.data.token);
-            router.push('/dashboard');
+
+            if (response.status === 403) {
+                setError('Wrong credentials. Please try again.');
+            } else if (response.status === 200) {
+                localStorage.setItem('authToken', response.data.token);
+                router.push('/dashboard');
+            }
         } catch (err) {
-            setError(err.response?.data?.message || 'Invalid credentials.');
+            setError(err.response?.data?.error || 'An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
     };
+
+
 
     const handleForgotPassword = async (e) => {
         e.preventDefault();
@@ -64,8 +71,11 @@ export default function SigninRegisterPage() {
         }
     };
 
+    const [loadingOtp, setLoadingOtp] = useState(false);
+
     const handleGetOtp = async () => {
         try {
+            setLoadingOtp(true); // Show "Generating OTP..." message
             const response = await axios.post('http://65.2.140.129:8000/api/otp/request/', { email });
 
             if (response.status === 200) {
@@ -75,6 +85,8 @@ export default function SigninRegisterPage() {
         } catch (error) {
             console.error('Error requesting OTP:', error);
             alert('Failed to send OTP. Please try again.');
+        } finally {
+            setLoadingOtp(false); // Hide message after redirection or error
         }
     };
 
@@ -112,30 +124,41 @@ export default function SigninRegisterPage() {
     };
 
 
-
     const handleRegisterSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation checks
-        if (password !== confirmPassword) {
-            setError({ password: ['Passwords do not match.'] });
-            return;
+        let validationErrors = {};
+
+        // Name validation
+        if (!name.trim()) {
+            validationErrors.name = ['Name is required.'];
         }
-        if (!name) {
-            setError({ name: ['Name is required.'] });
-            return;
+
+        // Address validation
+        if (!address.trim()) {
+            validationErrors.address = ['Address is required.'];
         }
-        if (!address) {
-            setError({ address: ['Address is required.'] });
-            return;
+
+        // Purpose of Use validation
+        if (!purpose.trim()) {
+            validationErrors.purpose = ['Purpose of use is required.'];
         }
-        if (!purpose) {
-            setError({ purpose: ['Purpose of use is required.'] });
+
+        // Password validation
+        if (password.length < 8) {
+            validationErrors.password = ['Password must be at least 8 characters long.'];
+        } else if (password !== confirmPassword) {
+            validationErrors.password = ['Passwords do not match.'];
+        }
+
+        // If errors exist, set error state and stop execution
+        if (Object.keys(validationErrors).length > 0) {
+            setError(validationErrors);
             return;
         }
 
+        // Clear errors before submitting
         setError({});
-        setError('');
 
         try {
             const response = await axios.post('http://65.2.140.129:8000/api/users/', {
@@ -144,6 +167,7 @@ export default function SigninRegisterPage() {
                     email,
                     password,
                     verification_token: verificationToken,
+                    phone_number: phone,
                     profile: {
                         address,
                         purpose_of_use: purpose,
@@ -164,10 +188,11 @@ export default function SigninRegisterPage() {
             if (err.response?.data?.user) {
                 setError(err.response.data.user);
             } else {
-                setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+                setError({ general: [err.response?.data?.message || 'Something went wrong. Please try again.'] });
             }
         }
     };
+
 
     const renderForm = () => {
         return (
@@ -193,6 +218,7 @@ export default function SigninRegisterPage() {
                                 borderRadius: '8px',
                                 backgroundColor: step === 'signIn' ? 'white' : 'transparent',
                                 fontWeight: step === 'signIn' ? 'bold' : 'normal',
+                                fontSize: '18px',
                                 lineHeight: '47px',  // Ensures the button text aligns
                             }}
                             onClick={() => setStep('signIn')}
@@ -206,6 +232,7 @@ export default function SigninRegisterPage() {
                                 borderRadius: '8px',
                                 backgroundColor: step === 'register' ? 'white' : 'transparent',
                                 fontWeight: step === 'register' ? 'bold' : 'normal',
+                                fontSize: '18px',
                                 lineHeight: '47px',
                             }}
                             onClick={() => setStep('register')}
@@ -230,7 +257,7 @@ export default function SigninRegisterPage() {
                                     borderRadius: '8px',
                                     color: 'black',
                                     textAlign: 'left',
-                                    height: '48px',  // Matches the toggle button height
+                                    height: '48px',
                                 }}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -262,6 +289,8 @@ export default function SigninRegisterPage() {
                                 Forgot Password?
                             </p>
 
+                            {error && <p className="text-danger text-center mt-2">{error}</p>} {/* Error message */}
+
                             <button
                                 className="btn btn-dark w-100"
                                 type="submit"
@@ -270,7 +299,7 @@ export default function SigninRegisterPage() {
                                     width: '100%',
                                     height: '48px',
                                     paddingTop: '10px',
-                                    paddingBottom: '10px',  // Ensures proper vertical spacing
+                                    paddingBottom: '10px',
                                     fontSize: '16px',
                                     fontWeight: 'bold',
                                 }}
@@ -278,33 +307,16 @@ export default function SigninRegisterPage() {
                                 Sign In
                             </button>
                         </form>
+
                         <p className="text-center mt-3">Other Sign-in Options</p>
                         <div className="d-flex justify-content-center gap-3">
-                            <img
-                                src="/google.png"
-                                alt="Google Sign-In"
-                                width={30}
-                                height={30}
-                                style={{ cursor: 'pointer' }}
-                            />
-                            <img
-                                src="/facebook.png"
-                                alt="Facebook Sign-In"
-                                width={30}
-                                height={30}
-                                style={{ cursor: 'pointer' }}
-                            />
-                            <img
-                                src="/apple.png"
-                                alt="Apple Sign-In"
-                                width={30}
-                                height={30}
-                                style={{ cursor: 'pointer' }}
-                            />
+                            <img src="/google.png" alt="Google Sign-In" width={40} height={40} style={{ cursor: 'pointer' }} />
+                            <img src="/facebook.png" alt="Facebook Sign-In" width={40} height={40} style={{ cursor: 'pointer' }} />
+                            <img src="/apple.png" alt="Apple Sign-In" width={40} height={40} style={{ cursor: 'pointer' }} />
                         </div>
-
                     </>
                 )}
+
 
                 {step === 'forgotPassword' && (
                     <>
@@ -339,8 +351,9 @@ export default function SigninRegisterPage() {
                                 fontSize: '16px',
                                 fontWeight: 'bold',
                             }}
+                            disabled={loadingOtp} // Disable button while generating OTP
                         >
-                            Get OTP
+                            {loadingOtp ? 'Generating OTP...' : 'Get OTP'}
                         </button>
 
                         <button
@@ -357,11 +370,16 @@ export default function SigninRegisterPage() {
                                 fontWeight: 'bold',
                                 border: '1px solid black',
                             }}
+                            disabled={loadingOtp} // Prevent going back while generating OTP
                         >
                             Back
                         </button>
+
+                        {/* Show message below the Get OTP button */}
+                        {loadingOtp && <p className="text-center mt-2" style={{ color: 'black' }}>Generating OTP...</p>}
                     </>
                 )}
+
 
 
                 {step === 'enterOtp' && (
@@ -498,7 +516,7 @@ export default function SigninRegisterPage() {
                         <label className="mb-1 d-block text-start">Phone Number</label>
                         <input
                             type="tel"
-                            className="form-control mb-3"
+                            className="form-control mb-5"
                             style={{
                                 backgroundColor: '#D9D9D9',
                                 border: 'none',
@@ -506,7 +524,8 @@ export default function SigninRegisterPage() {
                                 color: 'black',
                                 textAlign: 'left',
                                 height: '48px',
-                                marginBottom: '12px',
+                                marginBottom: '120px',
+
                             }}
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
@@ -528,119 +547,139 @@ export default function SigninRegisterPage() {
                         >
                             Send OTP
                         </button>
+                        {/* Show message below the Get OTP button */}
+                        {loadingOtp && <p className="text-center mt-2" style={{ color: 'black' }}>Generating OTP...</p>}
+
                         <p className="text-center mt-3">Other Sign-in Options</p>
                         <div className="d-flex justify-content-center gap-3">
                             <img
                                 src="/google.png"
                                 alt="Google Sign-In"
-                                width={30}
-                                height={30}
+                                width={40}
+                                height={40}
                                 style={{ cursor: 'pointer' }}
                             />
                             <img
                                 src="/facebook.png"
                                 alt="Facebook Sign-In"
-                                width={30}
-                                height={30}
+                                width={40}
+                                height={40}
                                 style={{ cursor: 'pointer' }}
                             />
                             <img
                                 src="/apple.png"
                                 alt="Apple Sign-In"
-                                width={30}
-                                height={30}
+                                width={40}
+                                height={40}
                                 style={{ cursor: 'pointer' }}
                             />
                         </div>
+
                     </>
                 )}
                 {step === 'fillForm' && (
                     <>
+                        {/* Name Input */}
                         <label className="mb-1 d-block text-start">Name</label>
                         <input
                             type="text"
-                            className="form-control mb-3"
+                            className="form-control mb-2"
                             style={{
-                                backgroundColor: '#D9D9D9',
-                                border: 'none',
                                 borderRadius: '8px',
-                                color: 'black',
-                                textAlign: 'left',
+                                width: '100%',
                                 height: '48px',
+                                paddingTop: '10px',
+                                paddingBottom: '10px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
                             }}
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
                         />
+                        {error?.name && <p className="text-danger">{error.name[0]}</p>}
 
+                        {/* Address Input */}
                         <label className="mb-1 d-block text-start">Address</label>
                         <input
                             type="text"
-                            className="form-control mb-3"
+                            className="form-control mb-2"
                             style={{
-                                backgroundColor: '#D9D9D9',
-                                border: 'none',
                                 borderRadius: '8px',
-                                color: 'black',
-                                textAlign: 'left',
+                                width: '100%',
                                 height: '48px',
+                                paddingTop: '10px',
+                                paddingBottom: '10px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
                             }}
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
                             required
                         />
+                        {error?.address && <p className="text-danger">{error.address[0]}</p>}
 
+                        {/* Purpose of Use */}
                         <label className="mb-1 d-block text-start">Purpose of Use</label>
                         <input
                             type="text"
-                            className="form-control mb-3"
+                            className="form-control mb-2"
                             style={{
-                                backgroundColor: '#D9D9D9',
-                                border: 'none',
                                 borderRadius: '8px',
-                                color: 'black',
-                                textAlign: 'left',
+                                width: '100%',
                                 height: '48px',
+                                paddingTop: '10px',
+                                paddingBottom: '10px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
                             }}
                             value={purpose}
                             onChange={(e) => setPurpose(e.target.value)}
                             required
                         />
+                        {error?.purpose && <p className="text-danger">{error.purpose[0]}</p>}
 
+                        {/* Password Input */}
                         <label className="mb-1 d-block text-start">Password</label>
                         <input
                             type="password"
-                            className="form-control mb-3"
+                            className="form-control mb-2"
                             style={{
-                                backgroundColor: '#D9D9D9',
-                                border: 'none',
                                 borderRadius: '8px',
-                                color: 'black',
-                                textAlign: 'left',
+                                width: '100%',
                                 height: '48px',
+                                paddingTop: '10px',
+                                paddingBottom: '10px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
                             }}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
                         />
+                        {error?.password && <p className="text-danger">{error.password[0]}</p>}
 
+                        {/* Confirm Password */}
                         <label className="mb-1 d-block text-start">Confirm Password</label>
                         <input
                             type="password"
-                            className="form-control mb-3"
+                            className="form-control mb-2"
                             style={{
-                                backgroundColor: '#D9D9D9',
-                                border: 'none',
                                 borderRadius: '8px',
-                                color: 'black',
-                                textAlign: 'left',
+                                width: '100%',
                                 height: '48px',
+                                paddingTop: '10px',
+                                paddingBottom: '10px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
                             }}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             required
                         />
+                        {error?.password && <p className="text-danger">{error.password[0]}</p>}
 
+                        {/* Register Button */}
                         <button
                             className="btn btn-dark w-100"
                             onClick={handleRegisterSubmit}
@@ -656,6 +695,10 @@ export default function SigninRegisterPage() {
                         >
                             Register
                         </button>
+
+                        {/* General Error Message */}
+                        {error?.general && <p className="text-danger text-center mt-2">{error.general[0]}</p>}
+
 
                     </>
                 )}

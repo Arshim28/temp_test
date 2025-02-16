@@ -54,7 +54,7 @@ class ReportPlanAdmin(admin.ModelAdmin):
 
 
 class ReportTransactionAdmin(admin.ModelAdmin):
-    list_display = ("report_plan", "user", "created_at")
+    list_display = ("village","khata_no", "user", "created_at")
     list_filter = ("report_plan",)
     ordering = ("-created_at",)
 

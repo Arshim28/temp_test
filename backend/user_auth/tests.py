@@ -9,6 +9,7 @@ import uuid
 
 User = get_user_model()
 
+
 class UserAPITestCase(APITestCase):
 
     def setUp(self):
@@ -21,7 +22,9 @@ class UserAPITestCase(APITestCase):
         )
 
         login_url = reverse("user-login")
-        login_data = {"user": {"email": self.user_email, "password": self.user_password}}
+        login_data = {
+            "user": {"email": self.user_email, "password": self.user_password}
+        }
         response = self.client.post(login_url, login_data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -31,40 +34,35 @@ class UserAPITestCase(APITestCase):
         self.assertIsNotNone(self.access_token, "Token should not be None")
 
     def test_registration(self):
-            """Tests the registration process."""
+        """Tests the registration process."""
 
-            verification_token = str(uuid.uuid4())
+        verification_token = str(uuid.uuid4())
 
-            otp_object = OTPVerification.objects.create(
-                email="test@registration.com",
-                is_verified=True,
-                verification_token=verification_token,
-                expires_at=timezone.now() + timezone.timedelta(minutes=10)
-            )
+        otp_object = OTPVerification.objects.create(
+            email="test@registration.com",
+            is_verified=True,
+            verification_token=verification_token,
+            expires_at=timezone.now() + timezone.timedelta(minutes=10),
+        )
 
-            data = {
-                "user": {
-                    "email": "test@registration.com",
-                    "password":"1234asdf",
-                    "verification_token": verification_token,
-                    "city": "Mumbai",
-                    "district": "XYZ",
-                    "state": "MH",
-                    "postalCode": "400001",
-                    "village": "SomeVillage",
-                    "profile": {
-                        "user_type":"Industry",
-                        "login_as" : "Broker"
-                    }
-                }
+        data = {
+            "user": {
+                "email": "test@registration.com",
+                "password": "1234asdf",
+                "verification_token": verification_token,
+                "city": "Mumbai",
+                "district": "XYZ",
+                "state": "MH",
+                "postalCode": "400001",
+                "village": "SomeVillage",
+                "profile": {"user_type": "Industry", "login_as": "Broker"},
             }
+        }
 
+        url = reverse("user-registration")
+        response = self.client.post(url, data, format="json")
 
-            url = reverse("user-registration")
-            response = self.client.post(url, data, format="json")
-
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_login(self):
         """
@@ -89,15 +87,16 @@ class UserAPITestCase(APITestCase):
         url = reverse("user-detail")  # Replace with actual view name
 
         # Send request with Authorization header
-        response = self.client.get(url, HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
+        response = self.client.get(
+            url, HTTP_AUTHORIZATION=f"Bearer {self.access_token}"
+        )
 
         # Verify response status
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("email", response.data)  # Ensure email is returned
         self.assertEqual(response.data["email"], self.user_email)
 
-
     def test_request_and_verify_otp(self):
         data = {"email": "test@example.com"}
-        response = self.client.post("/api/request-otp/", data, format='json')
+        response = self.client.post("/api/request-otp/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)

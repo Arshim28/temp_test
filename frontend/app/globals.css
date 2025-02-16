@@ -1,20 +1,20 @@
-:root {
+/* :root {
   --background: #ffffff;
   --foreground: #171717;
-}
+} */
 
 /* app/globals.css */
-@import 'leaflet/dist/leaflet.css';
+/* @import 'leaflet/dist/leaflet.css';
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 /* app/globals.css */
-body,
+/* body,
 html {
   margin: 0;
   padding: 0;
@@ -22,13 +22,13 @@ html {
   font-family: 'Roboto', sans-serif;
   background-color: #f8f9fa;
   color: #333;
-}
+} */
 
-main {
+/* main {
   padding: 0;
-}
+} */
 
-header {
+/* header {
   background-color: #007bff;
   color: #ffffff;
   padding: 20px;
@@ -39,8 +39,8 @@ footer {
   color: #ffffff;
   text-align: center;
   padding: 10px;
-}
-
+} */
+/* 
 h1,
 h2,
 h3 {
@@ -59,4 +59,25 @@ button {
 
 button:hover {
   background-color: #0056b3;
+} */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Inter:wght@600&display=swap');
+
+h1 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+}
+
+body,
+p,
+span,
+div,
+button,
+input,
+select,
+textarea {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
 }

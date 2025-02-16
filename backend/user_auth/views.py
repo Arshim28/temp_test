@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 
 from .renderers import UserJSONRenderer
-from .models import CustomUser, OTPVerification
+from .models import CustomUser, OTPVerification, UserProfile
 from .serializers import (
     RegistrationSerializer,
     LoginSerializer,
@@ -25,7 +25,7 @@ from .helpers import send_otp, generate_otp
 
 from utils.serializers import PlanSerializer, TransactionSerializer
 
-
+# pyright: reportAttributeAccessIssue=false
 logger = logging.getLogger(__name__)
 
 
@@ -62,11 +62,6 @@ class RegistrationAPIView(APIView):
 
                 profile_data = user_data["profile"]
                 profile_data["user"] = CustomUser.objects.get(email=email).id
-                profile_data["city"] = user_data["city"]
-                profile_data["district"] = user_data["district"]
-                profile_data["state"] = user_data["state"]
-                profile_data["pin_code"] = user_data["postalCode"]
-                profile_data["village"] = user_data["village"]
 
 
                 profile_serializer = ProfileSerializer(data=profile_data)
@@ -94,8 +89,9 @@ class RegistrationAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+
 class ForgotPassword(APIView):
-    permission_classes= (AllowAny,)
+    permission_classes = (AllowAny,)
     serializer_class = UserSerializer
 
     def post(self, request):
@@ -113,7 +109,9 @@ class ForgotPassword(APIView):
             )
 
         try:
-            otp_entry = OTPVerification.objects.get(email=email, verification_token=verification_token, is_verified=True)
+            otp_entry = OTPVerification.objects.get(
+                email=email, verification_token=verification_token, is_verified=True
+            )
             user = CustomUser.objects.get(email=email)
             user.set_password(password)
             user.save()
@@ -130,7 +128,6 @@ class ForgotPassword(APIView):
             )
 
 
-
 class LoginAPIView(APIView):
     permission_classes = (AllowAny,)
     serializer_class = LoginSerializer
@@ -138,14 +135,20 @@ class LoginAPIView(APIView):
     def post(self, request):
         user = request.data.get("user", {})
 
+
         serializer = self.serializer_class(data=user)
         logger.debug(f"Serialized Data: {serializer.initial_data}")
         if serializer.is_valid():
-            response = serializer.data
+            user_data = serializer.data
+            user_id = user_data["id"]
+            print(user_data)
+            user_profile = UserProfile.objects.get(user=user_id)
+            profile_serializer = ProfileSerializer(user_profile)
+            response = {**user_data, **profile_serializer.data}
             return Response(response, status=status.HTTP_200_OK)
 
         logger.error(serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_403_FORBIDDEN)
 
 
 class UserRetrieveUpdateAPIView(RetrieveUpdateAPIView):

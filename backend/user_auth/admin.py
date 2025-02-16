@@ -123,9 +123,9 @@ class CustomUserAdmin(UserAdmin):
 
 
 class UserProfileAdmin(ModelAdmin):
-    list_display = ["user", "login_as", "user_type"]
-    search_fields = ["user__email", "user_type"]
-    list_filter = ["user_type", "login_as"]
+    list_display = ["user"]
+    search_fields = ["user__email"]
+
 
 
 admin.site.register(UserProfile, UserProfileAdmin)

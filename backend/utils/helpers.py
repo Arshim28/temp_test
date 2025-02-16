@@ -1,11 +1,10 @@
 """Module containing helper functions for the backend."""
 
-
 from land_value.data_manager.all_manager.mh_all_manager import mh_all_manager
 
 from utils.models import Plan, ReportPlan
 from django.db.models import Sum
-
+from django.db.models import Count, F
 
 def get_metadata_state():
 
@@ -64,22 +63,13 @@ def has_plan_access(user, table) -> bool:
         district = district.upper()
         taluka = table.split(".")[1].split("_")[0]
         if taluka in metadata[district]["talukas"]:
-            args = {
-                "entity_type": "taluka",
-                "entity_name": taluka
-            }
+            args = {"entity_type": "taluka", "entity_name": taluka}
         else:
-            args = {
-                "entity_type": "district",
-                "entity_name": district
-            }
-
-
+            args = {"entity_type": "district", "entity_name": district}
 
     plans = Plan.objects.filter(user=user)
     if not plans.exists():
         return False
-
 
     village_accessible, talukas_accessible, districts_accessible = set(), set(), set()
 
@@ -107,11 +97,10 @@ def has_plan_access(user, table) -> bool:
         "district": districts_accessible,
     }
 
-
     return args["entity_name"] in access_map.get(args["entity_type"], set())
 
 
-def has_report_access(user, quantity):
+def has_report_access(user, quantity=1):
     """Checks if the user has access to the requested report and determines how much to deduct from each plan."""
 
     report_plans = ReportPlan.objects.filter(user=user)
@@ -135,6 +124,17 @@ def has_report_access(user, quantity):
 
     return True, plans_quantity
 
+def get_report_access_plan(user) -> ReportPlan | None:
+    """
+    Returns the first available ReportPlan where the user has remaining transactions.
+    If no such plan exists, returns None.
+    """
+
+    report_plans = ReportPlan.objects.filter(user=user).annotate(
+        used_transactions=Count("transactions")
+    ).filter(used_transactions__lt=F("quantity")).order_by("id")  # Order by ID for consistency
+
+    return report_plans.first()
 
 if __name__ == "__main__":
 

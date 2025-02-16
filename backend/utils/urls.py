@@ -17,7 +17,7 @@ from .views import (
     KhataNumbersView,
     get_plot_by_lat_lng,
     get_khata_preview,
-    test_has_access,
+    get_available_reports,
     # get_access_token
 )
 
@@ -40,8 +40,8 @@ urlpatterns = [
         RetrieveTransactionView.as_view(),
         name="retrieve-transaction",
     ),
-    path("report-gen/", report_gen, name="report-gen"),
-    path("report_gen2/", report_gen3, name="report_gen2"),
+    path("report-gen2/", report_gen, name="report-gen"),
+    path("report-gen/", report_gen3, name="report_gen2"),
     path(
         "maharashtra_metadata/",
         MaharashtraMetadataList.as_view(),
@@ -52,5 +52,5 @@ urlpatterns = [
     path("plot/", get_plot_by_lat_lng, name="get_plot_by_lat_lng"),
     path("get_tile_url/", get_tile_url, name="proxy_access_token"),
     path("khata-preview/", get_khata_preview, name="khata_preview"),
-    path("test", test_has_access, name="test_has_access")
+    path("reports-info/", get_available_reports, name="get_available_reports")
 ]

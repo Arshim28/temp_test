@@ -366,3 +366,42 @@
         width: 100%;
     }
 }
+
+/* Navbar */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 10px 20px;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-circle {
+    width: 40px;
+    height: 40px;
+    background-color: black;
+    color: white;
+    font-weight: bold;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+}
+
+/* Navbar */
+.navbar {
+    border-bottom: 2px solid black;
+}
+
+.navbar-brand {
+    cursor: pointer;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.navbar .btn {
+    border-radius: 25px;
+}

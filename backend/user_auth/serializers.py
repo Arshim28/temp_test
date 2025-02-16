@@ -17,6 +17,38 @@ class RegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         return CustomUser.objects.create_user(**validated_data)
 
+    def validate_password(self, password):
+            """Ensure password meets minimum length requirement."""
+            if len(password) < 8:
+                raise serializers.ValidationError("Password must be at least 8 characters long.")
+            return password
+
+    def validate(self, data):
+            """Returns the error message in more detail."""
+            email = data.get("email")
+            password = data.get("password")
+            name = data.get("name")
+
+
+            if not email:
+                raise serializers.ValidationError("An email address is required to register.")
+
+            if CustomUser.objects.filter(email=email).exists():
+                raise serializers.ValidationError("A user with this email already exists.")
+
+            if not password:
+                raise serializers.ValidationError("A password is required to register.")
+
+            if len(password) < 8:
+                raise serializers.ValidationError("Password must be at least 8 characters long.")
+
+            if not name:
+                raise serializers.ValidationError("A name is required to register.")
+
+
+
+            return data
+
 
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,13 +85,13 @@ class LoginSerializer(serializers.Serializer):
 
         if user is None:
             raise serializers.ValidationError(
-                "A user with this email and password was not found."
+                "Wrong email or password."
             )
 
         if not user.is_active:
             raise serializers.ValidationError("This user has been deactivated.")
 
-        return {"email": user.email, "token": user.token, "id": str(user.id)}
+        return {"email": user.email, "name": user.name, "token": user.token, "id": str(user.id)}
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -96,5 +128,10 @@ class UserSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ["id", "user", "login_as", "user_type", "district", "state", "pin_code", "village", "city"]
+        fields = [
+            "id",
+            "user",
+            "purpose_of_use",
+            "address",
+        ]
         read_only_fields = ["email", "id"]

@@ -29,9 +29,11 @@ export default function ReportPage() {
     const [loading, setLoading] = useState(true);
     const [showLoginPopup, setShowLoginPopup] = useState(false);
     const [isSearchingLatLong, setIsSearchingLatLong] = useState(false);
-
+    const [loadingmessage, setLoadingMessage] = useState("Loading...");
+    const [userDetails, setUserDetails] = useState(null);
     const router = useRouter();
     const token = localStorage.getItem('authToken');
+    const [isLoading, setIsLoading] = useState(false);
 
 
     useEffect(() => {
@@ -47,7 +49,10 @@ export default function ReportPage() {
     useEffect(() => {
         const fetchHierarchy = async () => {
             try {
-                const res = await axios.get('http://65.2.140.129:8000/api/maharashtra-hierarchy/');
+                const res = await axios.get('http://65.2.140.129:8000/api/maharashtra-hierarchy/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
                 setHierarchy(res.data);
             } catch (error) {
                 console.error('Error fetching hierarchy:', error);
@@ -56,6 +61,26 @@ export default function ReportPage() {
             }
         };
         fetchHierarchy();
+        const fetchPlans = async () => {
+            try {
+                const userResponse = await axios.get('http://65.2.140.129:8000/api/user/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                const plansResponse = await axios.get('http://65.2.140.129:8000/api/plans/reports/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                console.log('Plans:', plansResponse.data);
+
+                setUserDetails(userResponse.data.user);
+                setPlans(plansResponse.data || []);
+                setSelectedPlan(plansResponse.data?.[0] || null); // Default selection
+            } catch (err) {
+                console.error('Error fetching plans:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -67,61 +92,19 @@ export default function ReportPage() {
         }
     }, [filters.district, filters.taluka, filters.village]);
 
-    // useEffect(() => {
-    //     if (filters.district && filters.taluka && filters.village) {
-    //         const fetchKhataNumbers = async () => {
-    //             try {
-    //                 const res = await axios.get(`http://65.2.140.129:8000/api/khata-numbers/`, {
-    //                     params: {
-    //                         district: filters.district,
-    //                         taluka_name: filters.taluka,
-    //                         village_name: filters.village
-    //                     }
-    //                 });
-
-    //                 console.log('Khata Numbers Response:', res.data);
-
-    //                 // Extract khata_numbers array and set state
-    //                 setKhataNumbers(Array.isArray(res.data.khata_numbers) ? res.data.khata_numbers : []);
-
-    //                 const params = new URLSearchParams({
-    //                     district: filters.district,
-    //                     taluka: filters.taluka,
-    //                     village: filters.village
-    //                 });
-
-    //                 const resp = await fetch(`http://65.2.140.129:8000/api/khata-preview/?${params}`);
-
-    //                 if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
-
-    //                 console.log('Khata Preview Response:', resp);
-
-    //                 const data = await resp.json();
-    //                 console.log('Search Ress:', data);
-    //                 setReports1(data);
-    //                 console.log('Khata:', reports1);
-
-
-    //             } catch (error) {
-    //                 console.error('Error fetching khata numbers:', error);
-    //                 setKhataNumbers([]); // Ensure fallback to an empty array
-    //             }
-    //         };
-    //         fetchKhataNumbers();
-    //     } else {
-    //         setKhataNumbers([]); // Reset when filters change
-    //     }
-    // }, [filters.district, filters.taluka, filters.village]);
 
     const fetchKhataNumbersAndReports = async () => {
         try {
             // setLoading(true);
+            setIsLoading(true);
             const res = await axios.get(`http://65.2.140.129:8000/api/khata-numbers/`, {
                 params: {
                     district: filters.district,
                     taluka_name: filters.taluka,
                     village_name: filters.village
-                }
+                },
+                headers: { Authorization: `Bearer ${token}` },
+
             });
 
             console.log("Khata Numbers Response:", res.data);
@@ -133,7 +116,10 @@ export default function ReportPage() {
                 village: filters.village
             });
 
-            const resp = await fetch(`http://65.2.140.129:8000/api/khata-preview/?${params}`);
+            const resp = await fetch(`http://65.2.140.129:8000/api/khata-preview/?${params}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
             if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
 
             const data = await resp.json();
@@ -145,6 +131,8 @@ export default function ReportPage() {
             console.error("Error fetching khata numbers:", error);
             setKhataNumbers([]);
             setReports([]);
+        } finally {
+            setIsLoading(false); // Stop loading when done
         }
     };
 
@@ -166,14 +154,19 @@ export default function ReportPage() {
             alert('Please enter valid Latitude and Longitude values.');
             return;
         }
-
+        setIsLoading(true);
+        // console.log(isLoading)
+        setReports([]);
         // setIsSearchingLatLong(true);
         const latLongQuery = `${latitude},${longitude}`;
 
         try {
             const params = new URLSearchParams({ lat: latitude, lng: longitude });
 
-            const response = await fetch(`http://65.2.140.129:8000/api/plot/?${params}`);
+            const response = await fetch(`http://65.2.140.129:8000/api/plot/?${params}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
 
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -181,9 +174,12 @@ export default function ReportPage() {
             console.log('Search Results:', data);
             setReports(data);
 
+
         } catch (error) {
             console.error('Error searching by Latitude and Longitude:', error);
             alert('Failed to search by Latitude and Longitude. Please try again.');
+        } finally {
+            setIsLoading(false); // Stop loading when done
         }
     };
     const [searchType, setSearchType] = useState("khata")
@@ -209,6 +205,7 @@ export default function ReportPage() {
                     khata_no: khata_no
                 },
                 responseType: 'blob',
+                headers: { Authorization: `Bearer ${token}` },
             });
 
             saveAs(response.data, `Report_${khata_no}.pdf`);
@@ -233,7 +230,10 @@ export default function ReportPage() {
                 khata_no: filters.khataNumber
             });
 
-            const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`);
+            const response = await fetch(`http://65.2.140.129:8000/api/report-gen/?${params}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -258,12 +258,35 @@ export default function ReportPage() {
     if (loading) return <LoadingScreen />;
 
     return (
+
         <div className="container-fluid report-page-container px-4">
+
+            <div className="container-fluid p-0">
+                <nav className="navbar navbar-light bg-white shadow-sm px-4 w-100 d-flex justify-content-between align-items-center" style={{ width: '100vw' }}>
+                    {/* Brand Name */}
+                    <span
+                        className="navbar-brand fw-bold"
+                        onClick={() => router.push(token ? '/dashboard' : '/signin')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        Terrastack AI
+                    </span>
+
+                    {/* User Details Circle (Top Right) */}
+                    {userDetails && (
+                        <div className="user-circle ms-auto" onClick={() => router.push('/dashboard')}>
+                            {userDetails.name.charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                </nav>
+            </div>
+
             {showLoginPopup && (
                 <div className="position-fixed top-50 start-50 translate-middle bg-dark text-white p-3 rounded shadow-lg" style={{ zIndex: 1000, width: '300px' }}>
                     <p className="text-center">🔒 Please login to continue</p>
                 </div>
             )}
+
 
             {/* Upper Container: Search & Filtering */}
             <div className="card p-4 mt-3 w-100" style={{ maxWidth: "100vw" }}>
@@ -321,7 +344,13 @@ export default function ReportPage() {
                                 <option value="">Select Khata Number</option>
                                 {khataNumbers.map(k => <option key={k} value={k}>{k}</option>)}
                             </select>
-                            <button className="btn btn-dark">Download Report</button>
+                            <button
+                                className="btn btn-dark"
+                                onClick={() => downloadReportPDF(filters.KhataNumber, filters.district, filters.taluka, filters.village)}
+                                disabled={!filters.KhataNumber} // Disable if no Khata number is selected
+                            >
+                                Download Report
+                            </button>
                         </div>
 
 
@@ -347,37 +376,52 @@ export default function ReportPage() {
                 </div>
 
                 {/* Search Results */}
-                <div className="mt-3 overflow-auto" style={{ maxHeight: "250px" }}>
-                    {reports.slice(0, 5).map((report, index) => (
-                        <div key={index} className="card mb-2 shadow-sm">
-                            <div className="card-body d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h5 className="card-title">Khata Number: {report.khata_no}</h5>
-                                    <p className="card-text"><strong>District:</strong> {report.district}</p>
-                                    <p className="card-text"><strong>Village:</strong> {report.village_name}</p>
-                                    <p className="card-text"><strong>Owner(s):</strong> {report.owner_names}</p>
-                                </div>
-                                <button className="btn btn-dark" onClick={() => downloadReportPDF(report.khata_no, report.district, report.taluka, report.village_name)}>
-                                    Download Report
-                                </button>
+                {/* Search Results */}
+                <div className="mt-3 overflow-auto" style={{ maxHeight: "400px" }}>
+                    {isLoading ? (
+                        <div className="text-center my-3">
+                            <div className="spinner-border text-dark" role="status">
+                                <span className="visually-hidden">Loading...</span>
                             </div>
+                            <p>Fetching reports, please wait...</p>
                         </div>
-                    ))}
+                    ) : (
+                        reports
+                            .filter(report => !filters.KhataNumber || report.khata_no === filters.KhataNumber)
+                            .slice(0, 5)
+                            .map((report, index) => (
+                                <div key={index} className="card mb-2 shadow-sm">
+                                    <div className="card-body d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h5 className="card-title">Khata Number: {report.khata_no}</h5>
+                                            <p className="card-text"><strong>District:</strong> {report.district}</p>
+                                            <p className="card-text"><strong>Village:</strong> {report.village_name}</p>
+                                            <p className="card-text"><strong>Owner(s):</strong> {report.owner_names}</p>
+                                        </div>
+                                        <button className="btn btn-dark" onClick={() => downloadReportPDF(report.khata_no, report.district, report.taluka, report.village_name)}>
+                                            Download Report
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                    )}
                 </div>
+
+
             </div>
 
             {/* Lower Container: Placeholder Images */}
-            <div className="content-section mt-4 w-100 p-4" style={{ maxWidth: "100vw" }}>
+            {reports.length === 0 && !isLoading && (<div className="content-section mt-4 w-100 p-4" style={{ maxWidth: "100vw" }}>
                 {!isSearchingLatLong && (
                     <div className="d-flex justify-content-center gap-4">
                         <div className="text-center">
                             <img
-                                src="/india.jpeg"
+                                src="/india.png"
                                 alt="Placeholder 1"
                                 className="img-fluid rounded shadow"
                                 style={{ width: "100%", maxWidth: "500px", height: "auto", objectFit: "cover" }}
                             />
-                            <p className="mt-2 text-muted">6 districts covered across MH, Rajasthan, Telangana so far, and rapidly expanding.</p>
+                            {/* <p className="mt-2 text-muted">6 districts covered across MH, Rajasthan, Telangana so far, and rapidly expanding.</p> */}
                         </div>
                         <div className="text-center">
                             <img
@@ -386,13 +430,13 @@ export default function ReportPage() {
                                 className="img-fluid rounded shadow"
                                 style={{ width: "100%", maxWidth: "500px", height: "auto", objectFit: "cover" }}
                             />
-                            <p className="mt-2 text-muted">A sample valuation report - generated for an arbitrary khata number.</p>
+                            {/* <p className="mt-2 text-muted">A sample valuation report - generated for an arbitrary khata number.</p> */}
                         </div>
                     </div>
                 )}
             </div>
+            )}
         </div>
     );
-
 
 }

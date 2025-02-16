@@ -1,14 +1,9 @@
-from inspect import ArgSpec
-from math import dist
-from contextily import tile
-from django.forms.fields import re
 import jwt
 
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
+from django.db import transaction, IntegrityError
 
-from pandas.io.formats.format import _trim_zeros_single_float
-from reportlab.lib.colors import cadetblue
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView, View
@@ -30,10 +25,10 @@ from .models import (
     ReportPlan,
     MaharashtraMetadata,
 )
-from .helpers import get_metadata_state, has_plan_access
-
-# from land_value.data_manager.all_manager import all_manager
+from .helpers import get_metadata_state, has_plan_access, get_report_access_plan
 from land_value.data_manager.all_manager.mh_all_manager import mh_all_manager
+
+# pyright: reportAttributeAccessIssue=false
 
 try:
     from terra_utils import Config
@@ -110,6 +105,8 @@ class ListReportPlansView(ListAPIView):
 
 
 class KhataNumbersView(View):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         district = request.GET.get("district")
         taluka_name = request.GET.get("taluka_name")
@@ -197,6 +194,8 @@ class RetrieveTransactionView(RetrieveAPIView):
 class MaharashtraMetadataList(APIView):
     """Returns metadata for Maharashtra contains all the states, districts, talukas and villages."""
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         filters = {}
         state = request.query_params.get("state", None)
@@ -219,12 +218,14 @@ class MaharashtraMetadataList(APIView):
 
 
 @api_view(["GET"])
+# @permission_classes([IsAuthenticated])
 def maharashtra_hierarchy(request):
     hierarchy = get_metadata_state()
     return JsonResponse(hierarchy, status=200, safe=False)
 
 
 @api_view(["GET"])
+# @permission_classes([IsAuthenticated])
 def report_gen(request):
     """Generates a PDF report for a single entity based on query parameters."""
 
@@ -289,19 +290,13 @@ def report_gen3(request):
             {"detail": "Invalid query parameters"}, status=status.HTTP_400_BAD_REQUEST
         )
 
-    try:
-        khata_no = int(khata_no)
-    except ValueError:
-        return Response(
-            {"detail": "Invalid survey number"}, status=status.HTTP_400_BAD_REQUEST
-        )
 
-    valid_plans = [p for p in user.plans.all() if p.is_valid]
 
-    if not valid_plans:
+    plan = get_report_access_plan(user)
+
+    if not plan:
         return Response(
-            {"detail": "No valid plans found for the user"},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"detail": "User does not have access to any plan"}, status=status.HTTP_403_FORBIDDEN
         )
 
     params.pop("state")
@@ -309,15 +304,36 @@ def report_gen3(request):
     all_manager_obj = mh_all_manager()
     pdf = all_manager_obj.get_plot_pdf_by_khata(**params, khata_no=khata_no)
 
-    if pdf:
-        ReportTransaction.objects.create(user=user, plan=valid_plans[0])
-        response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{khata_no}_plot.pdf"'
-        return response
+    if not pdf:
+        return Response(
+            {"error": "Failed to generate report"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        with transaction.atomic():
+            village = params.get("village")
+            taluka = params.get("taluka")
+            district = params.get("district")
 
-    return Response(
-        {"error": "Failed to generate report"}, status=status.HTTP_400_BAD_REQUEST
-    )
+            ReportTransaction.objects.create(report_plan=plan, khata_no=khata_no, village=village, taluka=taluka, district=district)
+
+            response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="{khata_no}_plot.pdf"'
+            return response
+
+    except IntegrityError:
+        return Response(
+            {"error": "Failed to create report transaction"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    except Exception as e:
+        print(f"[INFO]: An unexpected error occurred: {str(e)}")
+        return Response(
+            {"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename=\"{khata_no}_plot.pdf\"'
+    return response
+
+
 
 
 @api_view(["GET"])
@@ -327,27 +343,29 @@ def get_tile_url(request):
     # TODO: Need to pass the table id as well in encrypted form to restrict access.
     user = request.user
     table = request.query_params.get("table") or "jalgaon.parola_cadastrals"
-    table=table.strip()
+    table = table.strip()
 
-    if has_plan_access(user,table):
+    if has_plan_access(user, table):
         print("[INFO]: User has access to table")
         l_id = table
         SECRET_KEY = "tudu"  # FIXME: Load the secret key from the config
 
         payload = {
-        "uid": str(user.id),
-        "lid": l_id,
-        "exp": timezone.now() + timezone.timedelta(hours=1),
-        "iat": timezone.now(),
+            "uid": str(user.id),
+            "lid": l_id,
+            "exp": timezone.now() + timezone.timedelta(minutes=10),
+            "iat": timezone.now(),
         }
 
         # Generate the JWT token
         token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
-        tile_url = f"http://65.2.140.129:8088/{l_id}/{{z}}/{{x}}/{{y}}.pbf?token={token}"
+        tile_url = (
+            f"http://65.2.140.129:8088/{l_id}/{{z}}/{{x}}/{{y}}.pbf?token={token}"
+        )
 
         print(tile_url)
-        return Response({"tile_url":tile_url}, status=status.HTTP_200_OK)
+        return Response({"tile_url": tile_url}, status=status.HTTP_200_OK)
     else:
         return Response(
             {"error": "Unauthorized"},
@@ -356,6 +374,7 @@ def get_tile_url(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_plot_by_lat_lng(request):
     lat = request.query_params.get("lat")
     lng = request.query_params.get("lng")
@@ -387,6 +406,7 @@ def get_plot_by_lat_lng(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_khata_preview(request):
     """Get Khata Preview accepts district, taluka, village"""
     state = "maharashtra"
@@ -401,7 +421,9 @@ def get_khata_preview(request):
         )
 
     mh_all_manager_obj = mh_all_manager()
-    entries = mh_all_manager_obj.get_khata_preview_from_village(district, taluka, village)
+    entries = mh_all_manager_obj.get_khata_preview_from_village(
+        district, taluka, village
+    )
 
     details = []
     for khata in entries:
@@ -415,14 +437,18 @@ def get_khata_preview(request):
             }
         )
 
-
     print("[INFO]: Khata Preview, preview-entries count: ", len(details))
     return Response(details, status=status.HTTP_200_OK)
 
-
-
 @api_view(["GET"])
-def test_has_access(request):
+@permission_classes([IsAuthenticated])
+def get_available_reports(request):
+    """Retuns the no of reports the user can access and total no of reports"""
     user = request.user
-    args = []
-    return has_plan_access(user, args)
+    quantity = 0
+    reports_downloaded = 0
+    plans = ReportPlan.objects.filter(user=user)
+    for plan in plans:
+        quantity += plan.quantity
+        reports_downloaded += plan.total_transactions
+    return Response({"quantity": quantity, "used": reports_downloaded}, status=status.HTTP_200_OK)

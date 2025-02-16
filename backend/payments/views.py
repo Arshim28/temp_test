@@ -1,8 +1,10 @@
 import json
+import uuid
 import razorpay
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -16,6 +18,7 @@ from .serializers import (
     FixedReportPlansSerializer,
 )
 
+# pyright: reportAttributeAccessIssue=false
 
 ORDER_TYPE_MAP = {
     "mapview": FixedMVPlans,
@@ -27,12 +30,16 @@ ORDER_MODEL_MAP = {
     "report": (ReportPlanOrder, ReportPlanOrderSerializer),
 }
 
+FREE_REPORT_QUANTITY = 5
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def start_payment(request):
     """
     Creates an order in Razorpay and stores it in the database as PENDING.
     """
+    # FIXME: Add logic to handle same plan orders for MapView.
     required_fields = ["amount", "name", "order_type", "fixed_order"]
     if not all(request.data.get(field) for field in required_fields):
         return Response({"error": "Missing required parameters"}, status=400)
@@ -55,7 +62,9 @@ def start_payment(request):
     if fixed_order.price != amount:
         return Response({"error": "Invalid amount for the selected plan"}, status=400)
 
-    client = razorpay.Client(auth=(settings.RAZORPAY_PUBLIC_KEY, settings.RAZORPAY_SECRET_KEY))
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_PUBLIC_KEY, settings.RAZORPAY_SECRET_KEY)
+    )
 
     currency = getattr(settings, "PAYMENT_CURRENCY", "INR")
     payment = client.order.create(
@@ -78,7 +87,7 @@ def start_payment(request):
     )
 
     serializer = SerializerClass(order)
-    print ("[INFO]: SD: ", serializer.data)
+    print("[INFO]: SD: ", serializer.data)
     return Response({"payment": payment, "order": serializer.data})
 
 
@@ -100,23 +109,29 @@ def handle_payment_success(request):
     if not all([ord_id, raz_pay_id, raz_signature]):
         return Response({"error": "Missing payment details"}, status=400)
 
-    client = razorpay.Client(auth=(settings.RAZORPAY_PUBLIC_KEY, settings.RAZORPAY_SECRET_KEY))
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_PUBLIC_KEY, settings.RAZORPAY_SECRET_KEY)
+    )
 
     try:
-        client.utility.verify_payment_signature({
-            "razorpay_order_id": ord_id,
-            "razorpay_payment_id": raz_pay_id,
-            "razorpay_signature": raz_signature,
-        })
+        client.utility.verify_payment_signature(
+            {
+                "razorpay_order_id": ord_id,
+                "razorpay_payment_id": raz_pay_id,
+                "razorpay_signature": raz_signature,
+            }
+        )
     except razorpay.errors.SignatureVerificationError:
         return Response({"error": "Invalid payment signature"}, status=400)
 
     # Retrieve order dynamically
-    order = MVPlanOrder.objects.filter(order_payment_id=ord_id).first() or ReportPlanOrder.objects.filter(order_payment_id=ord_id).first()
+    order = (
+        MVPlanOrder.objects.filter(order_payment_id=ord_id).first()
+        or ReportPlanOrder.objects.filter(order_payment_id=ord_id).first()
+    )
 
     if not order:
-            return Response({"error": "Order not found"}, status=404)
-
+        return Response({"error": "Order not found"}, status=404)
 
     if order.status == "COMPLETED":
         return Response({"message": "Payment already verified"}, status=200)
@@ -135,7 +150,7 @@ def handle_payment_success(request):
                 user=order.user,
                 plan_type=entity_type,
                 entity_name=entity_type,
-                duration=12, # TODO: Add duration to FixedMVPlans
+                duration=12,  # TODO: Add duration to FixedMVPlans
                 is_paid=True,
             )
         elif isinstance(order, ReportPlanOrder):
@@ -145,7 +160,7 @@ def handle_payment_success(request):
             ReportPlan.objects.create(
                 user=order.user,
                 quantity=quantity,
-                duration=12, # TODO: Add duration to FixedReportPlans
+                duration=12,  # TODO: Add duration to FixedReportPlans
                 is_paid=True,
             )
 
@@ -158,7 +173,7 @@ def get_fixed_plan_details(request):
     """
     Retrieve details of a Fixed Map-View Plan based on entity_type and entity_name.
     """
-    print(request.query_params)
+    # TODO: Remove - No longer used
     plan_type = request.query_params.get("plan_type")
     if plan_type == "mapview":
         entity_type = request.query_params.get("entity_type").strip()
@@ -186,3 +201,53 @@ def get_fixed_plan_details(request):
         return Response(serializer.data, status=200)
     else:
         return Response({"error": "Invalid plan type"}, status=400)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_fixed_mv_plans(request):
+    plans = FixedMVPlans.objects.all()
+    serializer = FixedMVPlansSerializer(plans, many=True)
+
+    return Response(serializer.data, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_fixed_report_plans(request):
+    plans = FixedReportPlans.objects.all()
+    serializer = FixedReportPlansSerializer(plans, many=True)
+
+    return Response(serializer.data, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def buy_free_report_plan(request):
+    user = request.user
+    plan = FixedReportPlans.objects.filter(plan_name="Free").first()
+    if not plan:
+        plan = FixedReportPlans.objects.create(
+            plan_name="Free", quantity=FREE_REPORT_QUANTITY, price=0
+        )
+
+    free_report_plan = ReportPlanOrder.objects.filter(user=user,fixed_plan=plan).first()
+
+    if free_report_plan:
+        return Response({"error": "Free report plan already purchased"}, status=status.HTTP_400_BAD_REQUEST)
+
+    with transaction.atomic():
+        order = ReportPlanOrder.objects.create(
+            user=user,
+            order_product="FREE",
+            order_amount=0,
+            order_payment_id=str(uuid.uuid4()),
+            status="COMPLETED",
+            fixed_plan=plan,
+        )
+
+        ReportPlan.objects.create(
+            user=user, quantity=FREE_REPORT_QUANTITY, is_paid=True, duration=12
+        )
+
+    return Response({"message": "Free report plan purchased successfully"}, status=200)

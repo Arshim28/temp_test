@@ -142,7 +142,11 @@ class ReportTransaction(models.Model):
         db_index=True,
         related_name="transactions",
     )
-    details = models.JSONField(null=True, blank=True)
+    khata_no = models.CharField(max_length=100, null=True, blank=True)
+    village = models.CharField(max_length=100, null=True, blank=True)
+    taluka = models.CharField(max_length=100, null=True, blank=True)
+    district = models.CharField(max_length=100, null=True, blank=True)
+
 
     def save(self, *args, **kwargs):
         """

@@ -1,37 +1,43 @@
-/* Apply White Gradient to the Whole Page */
+/* General Styling */
+
+html,
+body {
+    overflow-x: hidden;
+}
+
 body {
     background: linear-gradient(to right, white, #f8f9fa);
-    /* White to light white gradient */
     margin: 0;
     padding: 0;
 }
 
-/* Navbar with Dark Bottom Line */
+/* Navbar */
 .navbar {
     border-bottom: 2px solid black;
 }
 
-.navbar span {
-    margin-left: 2%;
+.navbar-brand {
+    cursor: pointer;
     font-size: 24px;
+    font-weight: bold;
 }
 
-.navbar button {
-    margin-right: 2%;
-    width: 10%;
+.navbar .btn {
     border-radius: 25px;
 }
 
 /* Hero Section */
 .hero-section {
     position: relative;
-    height: 90vh;
+    height: calc(100vh - 64px);
     display: flex;
     align-items: center;
     overflow: hidden;
+    padding: 0 5%;
+    padding-bottom: 0;
 }
 
-/* Background Image Only on the Right Side */
+/* Background Image */
 .image-container {
     position: absolute;
     top: 0;
@@ -41,54 +47,112 @@ body {
     background: url('../../public/landing.png') center/cover no-repeat;
 }
 
-/* Content Wrapper (Starts from Left, Extends Over Image) */
+/* Content Wrapper */
 .content-wrapper {
     position: relative;
     z-index: 2;
-    width: 55%;
-    padding-left: 10%;
-    padding-right: 2%;
+    width: 50%;
     color: black;
 }
 
-/* Optimized Font Sizes */
 .content-wrapper h1 {
     font-size: 46px;
-    font-weight: 550;
-    /* Same as fw-bold but optimized */
+    font-weight: 600;
+    margin-bottom: 10px;
+    margin-top: -20px;
 }
 
 .content-wrapper p.lead {
     font-size: 20px;
-    font-weight: 450;
+    font-weight: 500;
 }
 
-
-/* Info Box */
+/* Info Boxes */
 .info-box {
     background: rgba(255, 255, 255, 0.85);
     border-radius: 12px;
     max-width: 450px;
-    margin-top: 5%;
-    margin-left: 2%;
     padding: 1.5rem;
-
-    /* Centering Content */
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
 }
 
-/* Info Box Title */
-.info-box h3 {
-    font-size: 24px;
-    font-weight: 600;
+.info-box:hover {
+    transform: scale(1.05);
 }
 
-/* Info Box Text */
-.info-box p {
+/* Mobile View Fix */
+@media (max-width: 768px) {
+    .image-container {
+        display: none;
+    }
+
+    .content-wrapper {
+        width: 100%;
+        text-align: center;
+        padding: 0 10%;
+    }
+}
+
+/* Animations */
+.fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeIn 0.8s forwards ease-in-out;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* User Circle */
+.user-circle {
+    width: 40px;
+    height: 40px;
+    background: black;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+}
+
+/* Dropdown */
+.dropdown-menu {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+    width: 150px;
+}
+
+.dropdown-menu.show {
+    display: flex;
+}
+
+.dropdown-item {
+    padding: 10px 20px;
+    cursor: pointer;
     font-size: 16px;
-    font-weight: 500;
+}
+
+.dropdown-item:hover {
+    background: #f8f9fa;
 }

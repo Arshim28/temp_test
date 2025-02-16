@@ -21,8 +21,7 @@ environ.Env.read_env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(os.path.join(BASE_DIR, 'submodules', 'land_value'))
-
+sys.path.append(os.path.join(BASE_DIR, "submodules", "land_value"))
 
 
 # Quick-start development settings - unsuitable for production
@@ -37,7 +36,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 
-#CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = ["http://65.2.140.129:3000"]
 # Application definition
 
@@ -53,7 +52,6 @@ INSTALLED_APPS = [
     "user_auth",
     "utils",
     "payments",
-
 ]
 
 MIDDLEWARE = [
@@ -95,22 +93,22 @@ WSGI_APPLICATION = "base.wsgi.application"
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'django',
-        'USER': 'django',
-        'PASSWORD': 'postgres',
-        'HOST': 'localhost',
-        'PORT': '5432',
-            },
-    'external_db':{
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'pilot',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "django",
+        "USER": "django",
+        "PASSWORD": "postgres",
+        "HOST": "localhost",
+        "PORT": "5432",
+    },
+    "external_db": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "pilot",
+        "USER": "postgres",
+        "PASSWORD": "postgres",
+        "HOST": "localhost",
+        "PORT": "5432",
+    },
 }
 
 # Password validation

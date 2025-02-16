@@ -11,75 +11,36 @@ export default function Home() {
         router.push('/signin'); // Navigate to the Sign In page
     };
 
-    const handleLearnMoreClick = () => {
-        router.push('/mapview'); // Redirect to the MapView page
-    };
-
     return (
         <main>
-            {/* Navbar Section */}
-            <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-                <div className="container">
-                    <a className="navbar-brand" href="#">Terrastack</a>
-                    <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                        <span className="navbar-toggler-icon"></span>
-                    </button>
-                    <div className="collapse navbar-collapse" id="navbarNav">
-                        <ul className="navbar-nav ms-auto">
-                            <li className="nav-item">
-                                <button className="btn btn-outline-light me-2" onClick={handleSignInClick}>Sign In</button>
-                            </li>
-                            <li className="nav-item">
-                                <a className="nav-link text-light" href="#features">Features</a>
-                            </li>
-                            <li className="nav-item">
-                                <a className="nav-link text-light" href="#pricing">Pricing</a>
-                            </li>
-                            <li className="nav-item">
-                                <a className="nav-link text-light" href="#contact">Contact</a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+            {/* Top Navbar */}
+            <nav className="navbar navbar-light bg-white shadow-sm px-4">
+                <span className="navbar-brand fw-bold">Terrastack AI</span>
+                <button className="btn btn-dark" onClick={handleSignInClick}>Sign In</button>
             </nav>
 
             {/* Hero Section */}
-            <section className="text-center py-5 bg-secondary text-white">
-                <div className="container">
-                    <h1>Welcome to Terrastack</h1>
-                    <p className="lead">Your one-stop solution for land mapping and pricing.</p>
-                    <button className="btn btn-light btn-lg" onClick={handleLearnMoreClick}>Learn More</button>
-                </div>
-            </section>
+            <section className="hero-section d-flex align-items-center">
+                {/* Right Side Background Image */}
+                <div className="image-container"></div>
 
-            {/* Features Section */}
-            <section id="features" className="container py-5">
-                <div className="row text-center">
-                    <div className="col-md-4">
-                        <div className="card shadow-sm p-3">
-                            <h3>Interactive Maps</h3>
-                            <p>Explore land areas with real-time pricing and detailed maps.</p>
-                        </div>
+                {/* Left Content (Extends over image) */}
+                <div className="content-wrapper">
+                    <h1 className="display-4">Welcome to Terrastack AI</h1>
+                    <p className="lead ">Your trustworthy agent for rural land mapping and evaluation</p>
+
+                    {/* Rectangular Box with Static Content */}
+                    <div className="info-box shadow-sm">
+                        <h3 className="">Plot Assessments</h3>
+                        <p>Search for a plot by coordinates or ID and get a comprehensive evaluation report</p>
                     </div>
-                    <div className="col-md-4">
-                        <div className="card shadow-sm p-3">
-                            <h3>Advanced Search</h3>
-                            <p>Find the perfect land plot based on your needs and budget.</p>
-                        </div>
-                    </div>
-                    <div className="col-md-4">
-                        <div className="card shadow-sm p-3">
-                            <h3>Secure Transactions</h3>
-                            <p>Reliable and secure payment systems for peace of mind.</p>
-                        </div>
+
+                    <div className="info-box shadow-sm">
+                        <h3 className="">Map Explorer</h3>
+                        <p>View, filter, and rate plots by water access, connectivity, land activity, and more.</p>
                     </div>
                 </div>
             </section>
-
-            {/* Footer Section */}
-            <footer className="bg-dark text-white text-center py-3">
-                <p>&copy; 2025 Terrastack. All rights reserved.</p>
-            </footer>
         </main>
     );
 }
