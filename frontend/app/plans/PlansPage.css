@@ -1,0 +1,123 @@
+/* General Page Styling */
+.plans-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Navbar */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 10px 20px;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-circle {
+    width: 40px;
+    height: 40px;
+    background-color: black;
+    color: white;
+    font-weight: bold;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+}
+
+/* Plans Section */
+.plans-scroll-container {
+    display: flex;
+    overflow-x: auto;
+    padding: 20px;
+    gap: 20px;
+    white-space: nowrap;
+    scroll-behavior: smooth;
+    flex-grow: 1;
+    /* padding-bottom: 100px; */
+    /* Extra padding to ensure buttons don't get hidden */
+}
+
+/* Plan Card */
+.plan-card {
+    flex: 0 0 auto;
+    margin-top: 40px;
+    width: 350px;
+    height: 75%;
+    /* padding: 80px 20px; */
+    /* Increased top padding */
+    background: #f8f9fa;
+    border-radius: 10px;
+    text-align: left;
+    /* Align text to left */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Increased spacing above & below button */
+.btn {
+    margin-top: 25px;
+    /* More space above */
+    margin-bottom: 25px;
+    padding-top: 15px;
+    padding-bottom: 15px;
+    /* More space below */
+}
+
+/* Features List */
+.plan-features {
+    margin: 20px 0;
+    color: #333;
+    flex-grow: 1;
+}
+
+.plan-features ul {
+    padding-left: 20px;
+}
+
+.plan-features li {
+    list-style-type: disc;
+    margin-bottom: 5px;
+}
+
+/* Footer Summary Bar */
+.footer-summary {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: white;
+    box-shadow: 0px -2px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 100;
+    /* Ensure it's always visible */
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Fixing Pay Now Button Visibility */
+.pay-now-btn {
+    background: black;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 101;
+    /* Ensures it's on top */
+}
