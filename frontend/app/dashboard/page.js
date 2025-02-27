@@ -13,6 +13,8 @@ export default function Dashboard() {
     const [reportUsage, setReportUsage] = useState({ used: 0, quantity: 0 }); // State for report usage
     const [loading, setLoading] = useState(true);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [isRightSectionOpen, setIsRightSectionOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     const token = localStorage.getItem('authToken');
 
@@ -56,6 +58,15 @@ export default function Dashboard() {
         };
 
         fetchData();
+
+        const handleResize = () => {
+            setIsMobile(window.innerWidth <= 768);
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+
+        return () => window.removeEventListener('resize', handleResize);
     }, [token]);
 
     if (loading) return <div>Loading...</div>;
@@ -67,6 +78,7 @@ export default function Dashboard() {
                 <span className="navbar-brand fw-bold" onClick={() => router.push('/')} style={{ cursor: 'pointer' }}>
                     Terrastack AI
                 </span>
+
                 {userDetails && (
                     <div className="user-circle" onClick={() => setShowDropdown(!showDropdown)}>
                         {userDetails.name.charAt(0).toUpperCase()}
@@ -81,6 +93,9 @@ export default function Dashboard() {
                         )}
                     </div>
                 )}
+                {isMobile && (<button className="rightbar-toggle-btn" onClick={() => setIsRightSectionOpen(!isRightSectionOpen)}>
+                    ☰
+                </button>)}
             </nav>
 
             {/* Dashboard Layout with Three Sections */}
@@ -146,8 +161,11 @@ export default function Dashboard() {
                 </section>
 
                 {/* Right Section */}
-                <section className="right-section">
-                    <h3 className="applications-heading">Applications</h3>
+                <section className={`right-section ${isRightSectionOpen ? "expanded" : "collapsed"}`}>
+                    <h3 className="applications-heading" onClick={() => setIsRightSectionOpen(!isRightSectionOpen)}>
+                        Applications
+                        {/* <span>{isRightSectionOpen ? "▲" : "▼"}</span> */}
+                    </h3>
                     <div className="right-buttons-container">
                         <button className="app-button" onClick={() => router.push('/report')}>
                             <img src="/download-report.png" alt="Download Report" />

@@ -1,151 +1,180 @@
 'use client';
-import './DashBoard.css';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import axios from 'axios';
-import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
-import PlanList from './components/PlanList';
-import PurchasePlanForm from './components/PurchasePlanForm';
-import RightSidebar from './components/RightSidebar';
-import LoadingScreen from '../loader/page';
+import './DashBoard.css';
 
 export default function Dashboard() {
-    const [plans, setPlans] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [userDetails, setUserDetails] = useState(null);
-    const [allPlans, setAllPlans] = useState(null);
-    const [activeSection, setActiveSection] = useState('dashboard');
-    const [showLoginPopup, setShowLoginPopup] = useState(false);
     const router = useRouter();
-    const [loadingAllPlans, setLoadingAllPlans] = useState(false);
+    const [userDetails, setUserDetails] = useState(null);
+    const [plans, setPlans] = useState([]); // Initialize as an empty array
+    const [reportUsage, setReportUsage] = useState({ used: 0, quantity: 0 }); // State for report usage
+    const [loading, setLoading] = useState(true);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [isRightSectionOpen, setIsRightSectionOpen] = useState(false);
+
     const token = localStorage.getItem('authToken');
-    const handleUnauthorizedAccess = () => {
-        setShowLoginPopup(true);
-        setTimeout(() => {
-            setShowLoginPopup(false);
-            router.push('/login'); // Redirect to login page
-        }, 1500);
-    };
+
     useEffect(() => {
         if (!token) {
-            handleUnauthorizedAccess();
+            router.push('/signin');
+            return;
         }
+
+        const fetchData = async () => {
+            try {
+                // Fetch User Data
+                const userResponse = await axios.get('http://65.2.140.129:8000/api/user/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                // Fetch Plans Data
+                const plansResponse = await axios.get('http://65.2.140.129:8000/api/plans/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                // Fetch Reports Usage Data
+                const reportsResponse = await axios.get('http://65.2.140.129:8000/api/reports-info/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                setUserDetails(userResponse.data.user);
+                setPlans(plansResponse.data.results || []);
+                setReportUsage({
+                    used: reportsResponse.data.used || 0,
+                    quantity: reportsResponse.data.quantity || 0,
+                });
+
+                console.log('Plans:', plansResponse.data.results);
+                console.log('Report Usage:', reportsResponse.data);
+            } catch (err) {
+                console.error('Error fetching data:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
     }, [token]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            // if (!token) throw new Error('User is not authenticated.');
-
-            const userProfileResponse = await axios.get('http://65.2.140.129:8000/api/user/', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            setUserDetails(userProfileResponse.data);
-
-            const plansResponse = await axios.get('http://65.2.140.129:8000/api/plans/', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            setPlans(plansResponse.data.results);
-        } catch (err) {
-            // setError(err.message || 'Failed to fetch data.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (activeSection === 'dashboard') {
-            fetchData(); // ✅ Fetch updated plans when returning to dashboard
-        }
-    }, [activeSection]); // ✅ Triggers whenever route changes
-
-    const handleAllPlansClick = async () => {
-        setLoadingAllPlans(true);
-        try {
-            const plansResponse = await axios.get('http://65.2.140.129:8000/api/maharashtra_metadata/', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            setAllPlans(plansResponse.data);
-            setActiveSection('allPlans'); // Show form
-        } catch (err) {
-            setError(err.message || 'Failed to fetch all plans.');
-        } finally {
-            setLoadingAllPlans(false);
-        }
-    };
-
-    const handleDashboardClick = () => {
-        setActiveSection('dashboard');  // Navigate to dashboard
-    };
-
-    if (loading) return <LoadingScreen />;
-    if (error) return <div>Error: {error}</div>;
-
-
+    if (loading) return <div>Loading...</div>;
 
     return (
-        <div className="dashboard-container">
-            {showLoginPopup && (
-                <div className="popup">
-                    <div className="popup-content">
-                        <p>🔒 Please login to continue</p>
+        <main>
+            {/* Navbar */}
+            <nav className="navbar navbar-light bg-white shadow-sm px-4">
+                <span className="navbar-brand fw-bold" onClick={() => router.push('/')} style={{ cursor: 'pointer' }}>
+                    Terrastack AI
+                </span>
+                <button className="rightbar-toggle-btn" onClick={() => setIsRightSectionOpen(!isRightSectionOpen)}>
+                    ☰
+                </button>
+                {userDetails && (
+                    <div className="user-circle" onClick={() => setShowDropdown(!showDropdown)}>
+                        {userDetails.name.charAt(0).toUpperCase()}
+                        {showDropdown && (
+                            <div className="dropdown-menu show">
+                                <button className="dropdown-item" onClick={() => router.push('/account')}>My Account</button>
+                                <button className="dropdown-item" onClick={() => {
+                                    localStorage.removeItem('authToken');
+                                    router.push('/signin');
+                                }}>Log Out</button>
+                            </div>
+                        )}
                     </div>
-                </div>
-            )}
-            <Navbar userDetails={userDetails} />
-            <div className="dashboard-main">
-                <Sidebar
-                    userDetails={userDetails}
-                    handleAllPlansClick={handleAllPlansClick}
-                    handleDashboardClick={handleDashboardClick}
-                />
-                <div className="dashboard-middle">
-                    <h2>Welcome to your Terrastack account!</h2>
-                    {loadingAllPlans ? (
-                        <LoadingScreen message="Loading all available plans..." />
+                )}
+            </nav>
 
-                    ) : (
-                        <>
-                            {activeSection === 'dashboard' && <PlanList plans={plans} />}
-                            {activeSection === 'allPlans' && allPlans && (
-                                <PurchasePlanForm allPlans={allPlans} token={token} setActiveSection={setActiveSection} />
-                            )}
-                        </>
-                    )}
-                </div>
+            {/* Dashboard Layout with Three Sections */}
+            <div className="dashboard-container">
+                {/* Left Sidebar */}
+                <aside className="left-section">
+                    <div className="profile-circle">{userDetails?.name?.charAt(0).toUpperCase()}</div>
+                    <div className="user-name">{userDetails?.name}</div>
+                    <p className="clickable" onClick={() => router.push('/dashboard')}>Dashboard</p>
+                    <p className="clickable" onClick={() => router.push('/settings')}>Settings</p>
+                </aside>
 
-                <RightSidebar />
+                {/* Center Section */}
+                <section className="center-section">
+                    <h2 className="greeting">Hello, {userDetails?.name}!</h2>
+
+                    <div className="plans-wrapper">
+                        {/* Report Plan */}
+                        <div className="plan-box">
+                            <div className="plan-header">
+                                <img src="/report-icon.png" alt="Report Plan" className="plan-icon" />
+                                <h4>Report Plan</h4>
+                            </div>
+                            <p className="report-usage">
+                                <strong>{reportUsage.used}</strong> / <strong>{reportUsage.quantity}</strong> reports used
+                            </p>
+                            {/* Scrollable Purchased Plans */}
+                            <div className="scrollable-plans">
+
+                            </div>
+                            <button className="btn btn-dark" onClick={() => router.push('/plans')}>
+                                Buy More
+                            </button>
+
+                        </div>
+
+                        {/* Explorer Plan */}
+                        <div className="plan-box">
+                            <div className="plan-header">
+                                <img src="/explorer-icon.png" alt="Explorer Plan" className="plan-icon" />
+                                <h4>Explorer Plan</h4>
+                            </div>
+
+                            {/* Scrollable Purchased Plans */}
+                            <div className="scrollable-plans">
+                                {Array.isArray(plans) && plans.length > 0 ? (
+                                    plans.map((plan) => (
+                                        <div className="plan-card" key={plan.id}>
+                                            <p className="plan-type">{plan.plan_type} : {plan.entity_name}</p>
+                                            <p className="valid-till">Valid Till: {new Date(plan.valid_till).toLocaleDateString('en-GB')}</p>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="no-plans">No plans registered yet.</p>
+                                )}
+                            </div>
+                            <button className="btn btn-dark" onClick={() => router.push('/plans')}>
+                                Buy More
+                            </button>
+
+                        </div>
+                    </div>
+                </section>
+
+                {/* Right Section */}
+                <section className={`right-section ${isRightSectionOpen ? "expanded" : "collapsed"}`}>
+                    <h3 className="applications-heading" onClick={() => setIsRightSectionOpen(!isRightSectionOpen)}>
+                        Applications
+                        {/* <span>{isRightSectionOpen ? "▲" : "▼"}</span> */}
+                    </h3>
+                    <div className="right-buttons-container">
+                        <button className="app-button" onClick={() => router.push('/report')}>
+                            <img src="/download-report.png" alt="Download Report" />
+                            Download Report
+                        </button>
+                        <button className="app-button" onClick={() => router.push('/mapview')}>
+                            <img src="/mapview.png" alt="MapView" />
+                            MapView
+                        </button>
+                        <button className="app-button" onClick={() => router.push('')}>
+                            <img src="/heatmap.png" alt="Download Heatmap" />
+                            Download Heatmap
+                        </button>
+                        <button className="app-button" onClick={() => router.push('')}>
+                            <img src="/taluka-search.png" alt="Search by Taluka ID" />
+                            Search by Taluka ID
+                        </button>
+                    </div>
+                </section>
             </div>
-            {/* Styles for the popup */}
-            <style jsx>{`
-                .popup {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: rgba(0, 0, 0, 0.8);
-                    padding: 20px;
-                    border-radius: 10px;
-                    color: white;
-                    font-size: 18px;
-                    text-align: center;
-                    animation: fadeIn 0.3s ease-in-out;
-                    z-index: 1000;
-                    width: 300px;
-                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-                }
-
-                .popup-content {
-                    padding: 10px;
-                }
-
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translate(-50%, -55%); }
-                    to { opacity: 1; transform: translate(-50%, -50%); }
-                }
-            `}</style>
-        </div>
+        </main>
     );
 }

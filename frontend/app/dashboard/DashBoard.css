@@ -1,3 +1,21 @@
+/* Navbar */
+.navbar {
+    border-bottom: 2px solid black;
+}
+
+.navbar-brand {
+    cursor: pointer;
+    font-size: 24px;
+    font-weight: bold;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 25px;
+}
+
+.navbar .btn {
+    border-radius: 25px;
+}
+
 /* Dashboard Container */
 .dashboard-container {
     display: flex;
@@ -14,6 +32,7 @@
     flex-direction: column;
     align-items: center;
     padding: 20px;
+
 }
 
 .profile-circle {
@@ -27,6 +46,7 @@
     justify-content: center;
     border-radius: 50%;
     margin-bottom: 10px;
+    margin-top: 20px;
 }
 
 .user-name {
@@ -47,7 +67,7 @@
 /* Center Section */
 .center-section {
     flex-grow: 1;
-    padding: 40px;
+    padding: 20px;
     background-color: #e4e0e0;
     min-height: 500px;
     display: flex;
@@ -59,7 +79,9 @@
 .greeting {
     font-size: 26px;
     font-weight: bold;
+    margin-left: 10px;
     margin-bottom: 20px;
+    margin-top: -90px;
 }
 
 /* Plans Wrapper */
@@ -160,7 +182,7 @@
 
 /* Right Section */
 .right-section {
-    width: 25%;
+    width: 20%;
     background: white;
     padding: 20px;
     box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
@@ -171,8 +193,9 @@
 .applications-heading {
     font-size: 18px;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
     text-align: left;
+    margin-top: 40px;
 }
 
 .right-buttons-container {
@@ -194,6 +217,7 @@
     justify-content: flex-start;
     gap: 10px;
     width: 100%;
+    font-size: 16px;
 }
 
 .app-button img {
@@ -203,4 +227,172 @@
 
 .app-button:hover {
     background: #c9cacc;
+}
+
+/* Profile Dropdown */
+.user-circle {
+    position: relative;
+    cursor: pointer;
+    font-weight: bold;
+    background: black;
+    color: white;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 150px;
+    z-index: 1000;
+    display: none;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    padding: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+}
+
+.dropdown-item:hover {
+    background: #f1f1f1;
+}
+
+/* Profile Circle on Left Sidebar */
+.profile-circle {
+    background: black;
+    color: white;
+}
+
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+    .left-section {
+        display: none;
+        /* Hide left sidebar on mobile */
+    }
+
+    .plans-wrapper {
+        flex-direction: column;
+        /* Stack plans vertically */
+        gap: 20px;
+    }
+
+    .right-section {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 250px;
+        height: 100vh;
+        background: white;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        transition: right 0.3s ease-in-out;
+    }
+
+    .right-section.expanded {
+        right: 0;
+    }
+
+    .rightbar-toggle-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    /* Right Section Styling */
+    .right-section {
+        width: 220px;
+        /* Reduced width */
+        padding: 10px;
+        background: #f8f9fa;
+        border-left: 1px solid #ddd;
+        transition: width 0.3s ease-in-out;
+    }
+
+    .right-section.expanded {
+        width: 220px;
+    }
+
+    .right-section.collapsed {
+        width: 0;
+        overflow: hidden;
+        padding: 0;
+    }
+
+    /* Applications Heading */
+    .applications-heading {
+        font-size: 16px;
+        font-weight: 600;
+        text-align: left;
+        /* Align text to the left */
+        padding: 8px 10px;
+        /* Adjust padding for alignment */
+        border-bottom: 1px solid #ddd;
+    }
+
+    /* Right Side Buttons */
+    .right-buttons-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        /* Align items to the left */
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .app-button {
+        width: 100%;
+        /* Full width for proper alignment */
+        font-size: 14px;
+        padding: 8px 10px;
+        /* Adjust padding for left alignment */
+        border-radius: 6px;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        /* Align content to the left */
+        gap: 10px;
+        /* Space between icon and text */
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease-in-out;
+    }
+
+    .app-button img {
+        width: 18px;
+        height: 18px;
+    }
+
+    .app-button:hover {
+        background: #eaeaea;
+        transform: scale(1.02);
+    }
+}
+
+/* Toggle Right Sidebar in Navbar */
+.navbar-toggler {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
 }

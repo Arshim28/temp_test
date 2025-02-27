@@ -36,15 +36,15 @@ export default function ReportPage() {
     const [isLoading, setIsLoading] = useState(false);
 
 
-    useEffect(() => {
-        if (!token) {
-            setShowLoginPopup(true);
-            setTimeout(() => {
-                setShowLoginPopup(false);
-                router.push('/login');
-            }, 2000);
-        }
-    }, [token]);
+    // useEffect(() => {
+    //     if (!token) {
+    //         setShowLoginPopup(true);
+    //         setTimeout(() => {
+    //             setShowLoginPopup(false);
+    //             router.push('/signin');
+    //         }, 2000);
+    //     }
+    // }, [token]);
 
     useEffect(() => {
         const fetchHierarchy = async () => {
@@ -267,7 +267,11 @@ export default function ReportPage() {
                     <span
                         className="navbar-brand fw-bold"
                         onClick={() => router.push(token ? '/dashboard' : '/signin')}
-                        style={{ cursor: 'pointer' }}
+                        style={{
+                            cursor: 'pointer',
+                            // fontFamily: 'inter',
+                            fontSize: '1.5rem',
+                        }}
                     >
                         Terrastack AI
                     </span>
@@ -290,7 +294,12 @@ export default function ReportPage() {
 
             {/* Upper Container: Search & Filtering */}
             <div className="card p-4 mt-3 w-100" style={{ maxWidth: "100vw" }}>
-                <h2 className="text-center">Worried about the land you're investing in? Let the Terrastack AI agent take care of it.</h2>
+                <h2 className="text-center" style={{
+                    cursor: 'pointer',
+                    // fontFamily: 'inter',
+                    fontSize: '28px',
+                    fontWeight: '600',
+                }}>Worried about the land you're investing in? Let the Terrastack AI agent take care of it.</h2>
 
                 {/* Selection Options */}
                 <div className="d-flex justify-content-center gap-3 mt-3">
@@ -301,13 +310,13 @@ export default function ReportPage() {
 
                 {/* Filters (Only for Khata & Owner) */}
                 {(searchType === 'khata' || searchType === 'owner') && (
-                    <div className="row g-3 mt-3">
+                    <div className="row g-3 mt-3 p-6">
                         <div className="col-md-3">
                             <select className="form-select" disabled>
                                 <option selected>Maharashtra</option>
                             </select>
                         </div>
-                        <div className="col-md-3">
+                        <div className="col-md-3 p-6">
                             <select className="form-select" onChange={e => handleFilterChange('district', e.target.value)}>
                                 <option value="">Select District</option>
                                 {hierarchy.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
@@ -349,7 +358,7 @@ export default function ReportPage() {
                                 onClick={() => downloadReportPDF(filters.KhataNumber, filters.district, filters.taluka, filters.village)}
                                 disabled={!filters.KhataNumber} // Disable if no Khata number is selected
                             >
-                                Download Report
+                                Search
                             </button>
                         </div>
 

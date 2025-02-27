@@ -59,6 +59,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    font-family: 'inter', sans-serif;
 }
 
 .filters-container {
@@ -74,6 +75,7 @@
     padding: 10px;
     font-size: 14px;
     border: 1px solid #ccc;
+    font-family: 'inter', sans-serif;
     border-radius: 5px;
     width: 200px;
     background-color: #f8f9fa;
