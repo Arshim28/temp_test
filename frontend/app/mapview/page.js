@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -35,52 +35,80 @@ import {
 } from './components';
 
 // Constants
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://43.204.226.30:8001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://43.204.226.30:8000/api';
 const TILE_SERVER_URL = process.env.NEXT_PUBLIC_TILE_SERVER_URL || 'http://43.204.226.30:7800';
+const TILE_ENDPOINT_URL = process.env.NEXT_PUBLIC_TILE_ENDPOINT_URL || 'http://43.204.226.30:8088';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const DEFAULT_CENTER = [75.7139, 21.0486];
 const DEFAULT_ZOOM = 12;
 
-// Debug function to check network availability
-const checkApiAvailability = async () => {
-  try {
-    console.log("Checking API availability...");
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    const response = await fetch(`${API_BASE_URL}/health-check`, {
-      method: 'HEAD',
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      console.log("API is available");
-      return true
-    } else {
-      console.erro("API returned status:", response.status);
-      return false;
-    }
-  } catch (error) {
-    console.error("API connectivity check failed:", error.message);
-    return false;
+// Map style definitions
+const MAP_STYLES = {
+  base: {
+    version: 8,
+    sources: {
+      'basemap': {
+        type: 'raster',
+        tiles: ['https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}'],
+        tileSize: 256
+      }
+    },
+    layers: [{
+      id: 'basemap',
+      type: 'raster',
+      source: 'basemap'
+    }]
+  },
+  satellite: {
+    version: 8,
+    sources: {
+      'satellite': {
+        type: 'raster',
+        tiles: ['https://www.google.com/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}'],
+        tileSize: 256
+      }
+    },
+    layers: [{
+      id: 'satellite',
+      type: 'raster',
+      source: 'satellite'
+    }]
+  },
+  hybrid: {
+    version: 8,
+    sources: {
+      'hybrid': {
+        type: 'raster',
+        tiles: ['https://www.google.com/maps/vt/lyrs=y&x={x}&y={y}&z={z}'],
+        tileSize: 256
+      }
+    },
+    layers: [{
+      id: 'hybrid',
+      type: 'raster',
+      source: 'hybrid'
+    }]
+  },
+  topographic: {
+    version: 8,
+    sources: {
+      'topographic': {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256
+      }
+    },
+    layers: [{
+      id: 'topographic',
+      type: 'raster',
+      source: 'topographic'
+    }]
   }
 };
 
-// Enhanced error display component
+// Error Message Component
 const ErrorMessage = ({ error, onDismiss }) => (
-  <div className="error-message" style={{
-    position: 'absolute',
-    top: '20px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 1000,
-    backgroundColor: 'rgba(255, 0, 0, 0.8)',
-    color: 'white',
-    padding: '10px 20px',
-    borderRadius: '5px',
-    maxWidth: '80%'
-  }}>
+  <div className="error-message">
     <p>{error}</p>
     <button onClick={onDismiss}>Dismiss</button>
   </div>
@@ -94,7 +122,6 @@ export default function MapView() {
   const metadataCache = useRef({});
   const popupRef = useRef(null);
   const markerRef = useRef(null);
-  const drawRef = useRef(null);
   const measurementLayerRef = useRef(null);
 
   // Router
@@ -115,8 +142,9 @@ export default function MapView() {
 
   // UI State
   const [expandedSidebar, setExpandedSidebar] = useState(false);
-  const [sidebarMode, setSidebarMode] = useState('layers'); // 'layers', 'search', 'feature', 'filter', 'measurement', 'heatmap', 'export'
+  const [sidebarMode, setSidebarMode] = useState('layers');
   const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const [layerPopupOpen, setLayerPopupOpen] = useState(false);
 
   // Feature Info State
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -125,8 +153,6 @@ export default function MapView() {
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
   const [infoModeActive, setInfoModeActive] = useState(false);
 
-  //layer
-  const [layerPopupOpen, setLayerPopupOpen] = useState(false);
   // Search State
   const [searchCoords, setSearchCoords] = useState({ latitude: '', longitude: '' });
   const [searchQuery, setSearchQuery] = useState('');
@@ -138,7 +164,7 @@ export default function MapView() {
 
   // Measurement State
   const [measurementActive, setMeasurementActive] = useState(false);
-  const [measurementType, setMeasurementType] = useState('distance'); // 'distance', 'area'
+  const [measurementType, setMeasurementType] = useState('distance');
   const [measurementResult, setMeasurementResult] = useState(null);
 
   // Heatmap State
@@ -156,327 +182,231 @@ export default function MapView() {
   });
 
   // Check API availability when component mounts
-  // useEffect(() => {
-  //   const checkApi = async () => {
-  //     const available = await checkApiAvailability();
-  //     setApiAvailable(available);
-  //     if (!available) {
-  //       setError("API server is not responding. Map functionality will be limited.");
-  //     }
-  //   };
+  useEffect(() => {
+    const checkApi = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-  //   checkApi();
-  // }, []);
+        const response = await fetch(`${API_BASE_URL}/health-check`, {
+          method: 'HEAD',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-  // Initialize token from localStorage with better error handling
+        setApiAvailable(response.ok);
+        if (!response.ok) {
+          setError("API server is not responding. Map functionality will be limited.");
+        }
+      } catch (error) {
+        setApiAvailable(false);
+        setError("Unable to connect to the API server. Map functionality will be limited.");
+      }
+    };
+
+    checkApi();
+  }, []);
+
+  // Initialize token from localStorage
   useEffect(() => {
     try {
-      console.log("Checking for authentication token...");
       const storedToken = localStorage.getItem('authToken');
-
       if (storedToken) {
-        console.log("Authentication token found");
         setToken(storedToken);
       } else {
-        console.error("No authentication token found in localStorage");
         setError("Authentication required. Please login.");
         handleUnauthorizedAccess();
       }
     } catch (err) {
-      console.error("Error accessing localStorage:", err);
       setError("Failed to access authentication storage. Please ensure cookies are enabled.");
     }
   }, []);
 
+  // Define clearMeasurement at the top, before any function that might reference it
+  const clearMeasurement = useCallback(() => {
+    if (!mapRef.current) return;
+
+    const map = mapRef.current;
+
+    // Reset measurement data
+    if (measurementLayerRef.current) {
+      measurementLayerRef.current.points = [];
+
+      // Update source data
+      const source = map.getSource('measurement-source');
+      if (source) {
+        source.setData({
+          type: 'FeatureCollection',
+          features: []
+        });
+      }
+    }
+
+    setMeasurementResult(null);
+  }, []);
+
+  // Handle unauthorized access
+  const handleUnauthorizedAccess = useCallback(() => {
+    setShowLoginPopup(true);
+    const redirectTimer = setTimeout(() => {
+      setShowLoginPopup(false);
+      router.push('/signin');
+    }, 2000);
+    
+    return () => clearTimeout(redirectTimer);
+  }, [router]);
+
   // Fetch layers and districts when component mounts and token is available
   useEffect(() => {
-    if (!token) {
-      console.log("Skipping initial data load - no token available");
-      return;
-    }
-
-    if (!apiAvailable) {
-      console.log("Skipping initial data load - API not available");
-      return;
-    }
-
-    console.log("Token is available, loading initial data...");
+    if (!token || !apiAvailable) return;
 
     const loadInitialData = async () => {
       try {
-        console.log("Loading initial data (layers and districts)");
         setIsLoading(true);
+        setError(null);
 
-        // Debug the API URL
-        console.log(`API Base URL: ${API_BASE_URL}`);
-        console.log(`Tile Server URL: ${TILE_SERVER_URL}`);
-
-        // First try to fetch layers
-        console.log(`Fetching layers from ${TILE_SERVER_URL}`);
-        let layersData;
+        // Try to validate token first to catch authentication issues early
         try {
-          layersData = await fetchLayers(TILE_SERVER_URL);
-          console.log("Layers fetched successfully:", layersData);
-        } catch (layerError) {
-          console.error("Error fetching layers:", layerError);
-          layersData = [];
-          // Don't set a global error yet, try to fetch districts
+          await fetch(`${API_BASE_URL}/user/`, {
+            method: 'GET',
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          });
+        } catch (authError) {
+          // If token validation fails, redirect to login
+          console.error("Authentication failed:", authError);
+          handleUnauthorizedAccess();
+          return;
         }
 
-        // Then try to fetch districts
-        console.log(`Fetching districts from ${API_BASE_URL}`);
-        let districtsData;
-        try {
-          districtsData = await fetchDistricts(API_BASE_URL, token);
-          console.log("Districts fetched successfully:", districtsData);
-        } catch (districtError) {
-          console.error("Error fetching districts:", districtError);
-          districtsData = [];
-          // Don't set a global error yet, use what we have
-        }
+        // Fetch layers and districts in parallel with better error handling
+        const [layersData, districtsData] = await Promise.all([
+          fetchLayers(TILE_SERVER_URL).catch(err => {
+            console.error("Error fetching layers:", err);
+            return [];
+          }),
+          fetchDistricts(API_BASE_URL, token).catch(err => {
+            console.error("Error fetching districts:", err);
+            return [];
+          })
+        ]);
 
-        // Update state with whatever we got
+        // Update state with fetched data
         if (layersData.length > 0) {
           setLayers(layersData);
-        } else {
-          console.warn("No layers were fetched");
         }
 
         if (districtsData.length > 0) {
           setDistricts(districtsData);
-        } else {
-          console.warn("No districts were fetched");
         }
 
-        // Only set error if both failed
+        // Set error if both fetches failed
         if (layersData.length === 0 && districtsData.length === 0) {
-          throw new Error("Failed to load both layers and districts data");
+          throw new Error("Failed to load initial map data");
         }
-
       } catch (err) {
-        const errorMsg = `Failed to load initial data: ${err.message}`;
-        console.error(errorMsg, err);
-        setError(errorMsg);
+        setError(`Failed to load initial data: ${err.message}`);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadInitialData();
-  }, [token, apiAvailable]);
+  }, [token, apiAvailable, handleUnauthorizedAccess]);
 
-  // Handle unauthorized access
-  const handleUnauthorizedAccess = useCallback(() => {
-    console.log("Handling unauthorized access");
-    setShowLoginPopup(true);
-    setTimeout(() => {
-      setShowLoginPopup(false);
-      console.log("Redirecting to login page...");
-      router.push('/login');
-    }, 3000); // Longer timeout for visibility
-  }, [router]);
-
-  // Initialize map based on mapStyle with improved error handling
+  // Initialize or update map when mapStyle changes
   useEffect(() => {
-    router.push('/dashboard');
-    if (!mapContainerRef.current) {
-      console.error("Map container ref is not available");
-      return;
-    }
+    if (!mapContainerRef.current) return;
 
-    console.log("Initializing map with style:", mapStyle);
+    // Function to initialize map
+    const initializeMap = () => {
+      try {
+        // If map already exists, update style instead of recreating
+        if (mapRef.current) {
+          try {
+            // Just update the style instead of removing and recreating
+            mapRef.current.setStyle(MAP_STYLES[mapStyle]);
+            return;
+          } catch (e) {
+            console.error("Error updating map style:", e);
+            // If updating fails, proceed to recreate the map
+            mapRef.current.remove();
+          }
+        }
+        
+        // Create new map
+        const map = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style: MAP_STYLES[mapStyle],
+          center: DEFAULT_CENTER,
+          zoom: DEFAULT_ZOOM,
+          attributionControl: true
+        });
 
-    const mapStyles = {
-      base: {
-        version: 8,
-        sources: {
-          'basemap': {
-            type: 'raster',
-            tiles: ['https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}'],
-            tileSize: 256
+        // Add controls
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
+        map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+        map.addControl(new maplibregl.GeolocateControl({
+          positionOptions: { enableHighAccuracy: true },
+          trackUserLocation: true
+        }), 'top-right');
+
+        // Create a popup instance if it doesn't exist
+        if (!popupRef.current) {
+          popupRef.current = new maplibregl.Popup({
+            closeButton: true,
+            closeOnClick: false,
+            maxWidth: '300px'
+          });
+        }
+
+        // Set map reference
+        mapRef.current = map;
+
+        // Add event listeners
+        map.on('load', () => {
+          // Reload active layers when map is ready
+          if (activeLayers.length > 0) {
+            activeLayers.forEach(layer => loadLayer(layer));
           }
-        },
-        layers: [{
-          id: 'basemap',
-          type: 'raster',
-          source: 'basemap'
-        }]
-      },
-      satellite: {
-        version: 8,
-        sources: {
-          'satellite': {
-            type: 'raster',
-            tiles: ['https://www.google.com/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}'],
-            tileSize: 256
+        });
+
+        map.on('click', (e) => {
+          if (infoModeActive) {
+            handleFeatureInfoRequest(e);
           }
-        },
-        layers: [{
-          id: 'satellite',
-          type: 'raster',
-          source: 'satellite'
-        }]
-      },
-      hybrid: {
-        version: 8,
-        sources: {
-          'hybrid': {
-            type: 'raster',
-            tiles: ['https://www.google.com/maps/vt/lyrs=y&x={x}&y={y}&z={z}'],
-            tileSize: 256
+
+          if (measurementActive) {
+            handleMeasurementClick(e);
           }
-        },
-        layers: [{
-          id: 'hybrid',
-          type: 'raster',
-          source: 'hybrid'
-        }]
-      },
-      topographic: {
-        version: 8,
-        sources: {
-          'topographic': {
-            type: 'raster',
-            tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'],
-            tileSize: 256
-          }
-        },
-        layers: [{
-          id: 'topographic',
-          type: 'raster',
-          source: 'topographic'
-        }]
+        });
+
+        map.on('error', (e) => {
+          setError(`Map error: ${e.error?.message || 'Unknown error'}`);
+        });
+      } catch (err) {
+        setError(`Failed to initialize map: ${err.message}`);
       }
     };
 
-    // If map already exists, remove it
-    if (mapRef.current) {
-      try {
-        console.log("Removing existing map");
-        mapRef.current.remove();
-      } catch (e) {
-        console.error("Error removing map:", e);
-      }
-    }
-
-    try {
-      console.log("Creating new map instance");
-      // Create new map
-      const map = new maplibregl.Map({
-        container: mapContainerRef.current,
-        style: mapStyles[mapStyle],
-        center: DEFAULT_CENTER,
-        zoom: DEFAULT_ZOOM,
-        attributionControl: true
-      });
-
-      // Add navigation control
-      map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-      // Add scale control
-      map.addControl(
-        new maplibregl.ScaleControl({
-          maxWidth: 100,
-          unit: 'metric'
-        }),
-        'bottom-left'
-      );
-
-      // Add fullscreen control
-      map.addControl(new maplibregl.FullscreenControl(), 'top-right');
-
-      // Add geolocate control
-      map.addControl(
-        new maplibregl.GeolocateControl({
-          positionOptions: {
-            enableHighAccuracy: true
-          },
-          trackUserLocation: true
-        }),
-        'top-right'
-      );
-
-      // Create a popup instance
-      if (!popupRef.current) {
-        popupRef.current = new maplibregl.Popup({
-          closeButton: true,
-          closeOnClick: false,
-          maxWidth: '300px'
-        });
-      }
-
-      // Set map reference
-      mapRef.current = map;
-
-      // Add debug for map load
-      map.on('load', () => {
-        console.log("Map loaded successfully");
-      });
-
-      // Add debug for map errors
-      map.on('error', (e) => {
-        console.error("Map error:", e);
-        setError(`Map error: ${e.error.message || 'Unknown error'}`);
-      });
-
-      // Add click event listener with improved debugging
-      map.on('click', (e) => {
-        console.log("Map clicked at:", e.lngLat);
-
-        if (infoModeActive) {
-          console.log("Info mode is active, handling feature info request");
-          handleFeatureInfoRequest(e);
-        }
-
-        if (measurementActive) {
-          console.log("Measurement is active, handling measurement click");
-          handleMeasurementClick(e);
-        }
-      });
-
-      // Reload active layers when map is ready
-      map.once('load', () => {
-        console.log("Map loaded, checking for active layers to reload");
-        if (activeLayers.length > 0) {
-          console.log(`Reloading ${activeLayers.length} active layers`);
-          activeLayers.forEach(layer => loadLayer(layer));
-        } else {
-          console.log("No active layers to reload");
-        }
-      });
-
-    } catch (err) {
-      console.error("Error initializing map:", err);
-      setError(`Failed to initialize map: ${err.message}`);
-    }
+    initializeMap();
 
     // Cleanup function
     return () => {
       if (mapRef.current) {
-        console.log("Cleaning up map");
-        try {
-          mapRef.current.remove();
-        } catch (err) {
-          console.error("Error during map cleanup:", err);
-        }
+        mapRef.current.remove();
+        mapRef.current = null;
       }
     };
   }, [mapStyle]);
 
-  // Load a layer onto the map with improved debugging and error handling
-  const loadLayer = async (layer) => {
-    console.log(`loadLayer called for layer: ${layer.id}`);
-
-    if (!mapRef.current) {
-      console.error("Map reference is not available");
-      setError("Map not initialized. Please refresh the page.");
-      return;
-    }
-
-    if (!token) {
-      console.error("Authentication token is not available");
-      setError("Authentication required to load layers. Please login.");
-      handleUnauthorizedAccess();
+  // Load a layer onto the map
+  const loadLayer = useCallback(async (layer) => {
+    if (!mapRef.current || !token) {
+      if (!token) handleUnauthorizedAccess();
       return;
     }
 
@@ -484,61 +414,35 @@ export default function MapView() {
 
     // Check if map is loaded
     if (!map.loaded()) {
-      console.log("Map not fully loaded yet, waiting for load event");
-      map.once('load', () => {
-        console.log("Map now loaded, proceeding with layer load");
-        loadLayer(layer); // Retry once map is loaded
-      });
+      map.once('load', () => loadLayer(layer));
       return;
     }
 
     // Skip if layer is already loaded
     if (activeLayers.find(activeLayer => activeLayer.id === layer.id)) {
-      console.log(`Layer ${layer.id} is already loaded, selecting it`);
       setSelectedLayer(layer);
       return;
     }
 
     try {
-      console.log(`Starting to load layer: ${layer.id}`);
       setIsLoading(true);
       setError(null);
 
       // Fetch tile URL with authentication token
-      console.log(`Fetching tile URL for layer ${layer.id} from ${API_BASE_URL}`);
-      let tileUrl;
-      try {
-        tileUrl = await fetchTileUrl(API_BASE_URL, layer.id, token);
-        console.log(`Tile URL obtained: ${tileUrl}`);
-      } catch (urlError) {
-        console.error("Error fetching tile URL:", urlError);
-        throw new Error(`Failed to get tile URL: ${urlError.message}`);
-      }
+      const tileUrl = await fetchTileUrl(API_BASE_URL, layer.id, token);
 
       // Fetch layer metadata if not already cached
       if (!metadataCache.current[layer.id]) {
-        console.log(`Fetching metadata for layer ${layer.id} from ${TILE_SERVER_URL}`);
-        try {
-          const metadata = await fetchMetadata(TILE_SERVER_URL, layer.id);
-          console.log(`Metadata obtained for layer ${layer.id}:`, metadata);
-          metadataCache.current[layer.id] = metadata;
-        } catch (metadataError) {
-          console.error("Error fetching metadata:", metadataError);
-          throw new Error(`Failed to get layer metadata: ${metadataError.message}`);
-        }
+        const metadata = await fetchMetadata(TILE_SERVER_URL, layer.id);
+        metadataCache.current[layer.id] = metadata;
       }
 
       const metadata = metadataCache.current[layer.id];
-      console.log(`Using metadata for layer ${layer.id}:`, metadata);
-
       const geometryType = metadata?.geometrytype;
 
       if (!geometryType) {
-        console.error(`Geometry type not found for layer: ${layer.name}`);
         throw new Error(`Geometry type not found for layer: ${layer.name || layer.id}`);
       }
-
-      console.log(`Layer ${layer.id} has geometry type: ${geometryType}`);
 
       // Configure layer based on geometry type
       let layerType, paint = {};
@@ -579,7 +483,6 @@ export default function MapView() {
           break;
 
         default:
-          console.error(`Unsupported geometry type: ${geometryType}`);
           throw new Error(`Unsupported geometry type: ${geometryType}`);
       }
 
@@ -589,7 +492,6 @@ export default function MapView() {
 
       // Check if source already exists, remove it if it does
       if (map.getSource(sourceId)) {
-        console.log(`Source ${sourceId} already exists, removing it`);
         map.removeLayer(layerId);
         map.removeSource(sourceId);
       }
@@ -598,30 +500,19 @@ export default function MapView() {
       let filter = null;
       if (filterDefinitions[layer.id]) {
         filter = createCQLFilter(filterDefinitions[layer.id]);
-        console.log(`Applied filter to layer ${layer.id}:`, filter);
       }
 
-      // Construct the final tile URL
-      const finalTileUrl = filter ?
-        `${tileUrl}&cql_filter=${encodeURIComponent(filter)}` :
-        tileUrl;
+      // Format the tile URL properly using the tile endpoint and Openresty proxy format
+      // Extract the token part from the response
+      const tokenParam = tileUrl.includes('token=') ? tileUrl.split('token=')[1] : '';
+      
+      // Format for OpenResty proxy container at port 8088
+      const formattedLayerId = layer.id.replace(/\./g, '/');
+      const finalTileUrl = filter
+        ? `${TILE_ENDPOINT_URL}/${formattedLayerId}/{z}/{x}/{y}.pbf?token=${tokenParam}&cql_filter=${encodeURIComponent(filter)}`
+        : `${TILE_ENDPOINT_URL}/${formattedLayerId}/{z}/{x}/{y}.pbf?token=${tokenParam}`;
 
-      console.log(`Final tile URL for layer ${layer.id}: ${finalTileUrl}`);
-
-      // Debug: try to fetch the tile URL to see if it's valid
-      try {
-        const tileCheck = await fetch(finalTileUrl.replace('{z}', '0').replace('{x}', '0').replace('{y}', '0'));
-        if (!tileCheck.ok) {
-          console.warn(`Tile URL check failed with status: ${tileCheck.status}`);
-        } else {
-          console.log("Tile URL check successful");
-        }
-      } catch (tileCheckError) {
-        console.warn("Tile URL check failed:", tileCheckError);
-      }
-
-      // Add source
-      console.log(`Adding source ${sourceId} to map`);
+      // Add source with error handling
       try {
         map.addSource(sourceId, {
           type: 'vector',
@@ -629,46 +520,37 @@ export default function MapView() {
           minzoom: 0,
           maxzoom: 22
         });
-        console.log(`Source ${sourceId} added successfully`);
       } catch (sourceError) {
-        console.error(`Error adding source ${sourceId}:`, sourceError);
-        throw new Error(`Failed to add source: ${sourceError.message}`);
+        // If adding the source fails, try with alternative URL format
+        console.warn("Failed to add source with primary URL format, trying alternative:", sourceError.message);
+        
+        try {
+          // Try alternative format with dot notation instead of slash
+          const alternativeLayerId = formattedLayerId.replace(/\//g, '.');
+          const alternativeUrl = `${TILE_ENDPOINT_URL}/${alternativeLayerId}/{z}/{x}/{y}.pbf?token=${tokenParam}`;
+          
+          map.addSource(sourceId, {
+            type: 'vector',
+            tiles: [alternativeUrl],
+            minzoom: 0,
+            maxzoom: 22
+          });
+        } catch (altError) {
+          throw new Error(`Failed to add source with either URL format: ${altError.message}`);
+        }
       }
 
       // Add layer
-      console.log(`Adding layer ${layerId} to map with type ${layerType}`);
-      try {
-        map.addLayer({
-          id: layerId,
-          type: layerType,
-          source: sourceId,
-          'source-layer': layer.id,
-          paint: paint
-        });
-        console.log(`Layer ${layerId} added successfully`);
-      } catch (layerError) {
-        console.error(`Error adding layer ${layerId}:`, layerError);
-        // Try to clean up the source if layer addition fails
-        if (map.getSource(sourceId)) {
-          map.removeSource(sourceId);
-        }
-        throw new Error(`Failed to add layer: ${layerError.message}`);
-      }
+      map.addLayer({
+        id: layerId,
+        type: layerType,
+        source: sourceId,
+        'source-layer': layer.id,
+        paint: paint
+      });
 
-      // Verify layer was added successfully
-      if (!map.getLayer(layerId)) {
-        console.error(`Layer ${layerId} not found after adding`);
-        throw new Error(`Layer ${layerId} failed to load properly`);
-      }
-
-      // Add click event handler with debugging
-      console.log(`Adding click event handler for layer ${layerId}`);
-      const clickHandler = (e) => {
-        console.log(`Layer ${layerId} clicked:`, e);
-        handleFeatureClick(e);
-      };
-
-      map.on('click', layerId, clickHandler);
+      // Add click event handler
+      map.on('click', layerId, handleFeatureClick);
 
       // Add hover effect
       map.on('mouseenter', layerId, () => {
@@ -680,44 +562,23 @@ export default function MapView() {
       });
 
       // Update state
-      console.log(`Layer ${layer.id} loaded successfully, updating state`);
       setActiveLayers(prev => [...prev, layer]);
       setLayerOrder(prev => [...prev, layer.id]);
       setSelectedLayer(layer);
 
-      // Update other components
-      updateLegend();
-
     } catch (err) {
-      const errorMsg = `Failed to load layer ${layer.id || 'unknown'}: ${err.message}`;
-      console.error(errorMsg, err);
-      setError(errorMsg);
+      setError(`Failed to load layer ${layer.id || 'unknown'}: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, activeLayers, filterDefinitions, handleUnauthorizedAccess]);
 
-  // Handle clicking on a feature with improved debugging
-  const handleFeatureClick = (e) => {
-    console.log("handleFeatureClick called with event:", e);
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in handleFeatureClick");
-      return;
-    }
-
-    if (!infoModeActive) {
-      console.log("Info mode not active, ignoring feature click");
-      return;
-    }
+  // Handle clicking on a feature
+  const handleFeatureClick = useCallback((e) => {
+    if (!mapRef.current || !infoModeActive) return;
 
     const feature = e.features && e.features[0];
-    if (!feature) {
-      console.log("No feature found in click event");
-      return;
-    }
-
-    console.log("Feature clicked:", feature);
+    if (!feature) return;
 
     // Extract khata numbers if available
     const properties = feature.properties;
@@ -726,7 +587,6 @@ export default function MapView() {
     let parsedKhataNos = [];
     if (khataNo) {
       parsedKhataNos = khataNo.split(',').map(k => k.trim());
-      console.log("Parsed khata numbers:", parsedKhataNos);
     }
 
     // Update state
@@ -737,129 +597,97 @@ export default function MapView() {
 
     // Fly to feature
     const coordinates = e.lngLat;
-    console.log(`Flying to coordinates: ${coordinates.lng}, ${coordinates.lat}`);
-
     mapRef.current.flyTo({
       center: [coordinates.lng, coordinates.lat],
       zoom: Math.max(mapRef.current.getZoom(), 15),
       essential: true
     });
-  };
+  }, [infoModeActive]);
 
-  // Load feature info for all layers at a point with improved debugging
-  const handleFeatureInfoRequest = async (e) => {
-    console.log("handleFeatureInfoRequest called with event:", e);
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in handleFeatureInfoRequest");
-      return;
-    }
-
-    if (!token) {
-      console.error("Authentication token not available");
-      setError("Authentication required for feature info. Please login.");
-      return;
-    }
-
-    if (activeLayers.length === 0) {
-      console.log("No active layers to query");
+  // Load feature info for all layers at a point
+  const handleFeatureInfoRequest = useCallback(async (e) => {
+    if (!mapRef.current || !token || activeLayers.length === 0) {
+      if (!token) handleUnauthorizedAccess();
       return;
     }
 
     try {
-      console.log("Processing feature info request");
       setIsLoading(true);
 
       const map = mapRef.current;
       const point = e.lngLat;
-      console.log(`Query point: ${point.lng}, ${point.lat}`);
 
       // Fetch features for all active layers
-      console.log(`Fetching features for ${activeLayers.length} active layers`);
+      const fetchPromises = activeLayers.map(async (layer) => {
+        try {
+          const features = await fetchFeaturesByPoint(
+            API_BASE_URL,
+            layer.id,
+            point.lng,
+            point.lat,
+            map.getZoom(),
+            map.getCanvas().width,
+            map.getCanvas().height,
+            token
+          );
 
-      const results = await Promise.all(
-        activeLayers.map(async (layer) => {
-          try {
-            console.log(`Fetching features for layer ${layer.id}`);
-            const features = await fetchFeaturesByPoint(
-              API_BASE_URL,
-              layer.id,
-              point.lng,
-              point.lat,
-              map.getZoom(),
-              map.getCanvas().width,
-              map.getCanvas().height,
-              token
-            );
-
-            console.log(`Layer ${layer.id} returned ${features ? features.length : 0} features`);
-
-            if (features && features.length > 0) {
-              return features.map(feature => ({
-                ...feature,
-                _layerName: layer.name || layer.id
-              }));
-            }
-            return [];
-          } catch (error) {
-            console.error(`Error fetching features for layer ${layer.id}:`, error);
-            return [];
+          if (features && features.length > 0) {
+            return features.map(feature => ({
+              ...feature,
+              _layerName: layer.name || layer.id
+            }));
           }
-        })
-      );
+          return [];
+        } catch (error) {
+          console.error(`Error fetching features for layer ${layer.id}:`, error);
+          return [];
+        }
+      });
+
+      // Wait for all fetch operations to complete
+      const results = await Promise.all(fetchPromises);
 
       // Flatten results
       const allFeatures = results.flat();
-      console.log(`Total features found: ${allFeatures.length}`);
 
       if (allFeatures.length > 0) {
-        console.log("Features found, updating UI");
         setFeatureCollection(allFeatures);
         setCurrentFeatureIndex(0);
         setSelectedFeature(allFeatures[0]);
         setSidebarMode('feature');
         setExpandedSidebar(true);
       } else {
-        console.log("No features found, showing popup");
         popupRef.current
           .setLngLat(point)
           .setHTML("<p>No features found at this location</p>")
           .addTo(map);
       }
     } catch (err) {
-      const errorMsg = `Feature info request failed: ${err.message}`;
-      console.error(errorMsg, err);
-      setError(errorMsg);
+      setError(`Feature info request failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeLayers, token, handleUnauthorizedAccess]);
 
-  // Toggle info mode with debugging
-  const toggleInfoMode = () => {
-    console.log(`Toggling info mode from ${infoModeActive} to ${!infoModeActive}`);
-    setInfoModeActive(!infoModeActive);
+  // Toggle info mode
+  const toggleInfoMode = useCallback(() => {
+    setInfoModeActive(prev => !prev);
 
     // Update cursor
     if (mapRef.current) {
       mapRef.current.getCanvas().style.cursor = !infoModeActive ? 'help' : '';
-      console.log(`Updated cursor to ${!infoModeActive ? 'help' : 'default'}`);
     }
 
     // Turn off other tools
     if (!infoModeActive) {
-      console.log("Turning off other tools as info mode is being activated");
       setMeasurementActive(false);
       setHeatmapActive(false);
     }
-  };
+  }, [infoModeActive]);
 
   // Navigate between features in feature collection
-  const navigateFeatures = (direction) => {
-    if (featureCollection.length <= 1) {
-      console.log("Feature collection has 1 or fewer items, navigation not possible");
-      return;
-    }
+  const navigateFeatures = useCallback((direction) => {
+    if (featureCollection.length <= 1) return;
 
     let newIndex;
     if (direction === 'next') {
@@ -868,78 +696,55 @@ export default function MapView() {
       newIndex = (currentFeatureIndex - 1 + featureCollection.length) % featureCollection.length;
     }
 
-    console.log(`Navigating ${direction} to feature ${newIndex} of ${featureCollection.length}`);
     setCurrentFeatureIndex(newIndex);
     setSelectedFeature(featureCollection[newIndex]);
-  };
+  }, [featureCollection, currentFeatureIndex]);
 
-  // Remove a layer from the map with improved debugging
-  const removeLayer = (layer) => {
-    console.log(`removeLayer called for layer: ${layer.id}`);
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in removeLayer");
-      return;
-    }
+  // Remove a layer from the map
+  const removeLayer = useCallback((layer) => {
+    if (!mapRef.current) return;
 
     const map = mapRef.current;
     const sourceId = `source-${layer.id}`;
     const layerId = `layer-${layer.id}`;
 
-    // Remove event listeners with proper error handling
+    // Remove event listeners
     try {
-      console.log(`Removing event listeners for layer ${layerId}`);
       map.off('click', layerId, handleFeatureClick);
       map.off('mouseenter', layerId);
       map.off('mouseleave', layerId);
-    } catch (eventError) {
-      console.error(`Error removing event listeners for layer ${layerId}:`, eventError);
+    } catch (err) {
+      // Ignore errors from removing event listeners
     }
 
-    // Remove layer and source with proper error handling
+    // Remove layer and source
     try {
       if (map.getLayer(layerId)) {
-        console.log(`Removing layer ${layerId}`);
         map.removeLayer(layerId);
-      } else {
-        console.log(`Layer ${layerId} not found, skipping removal`);
       }
 
       if (map.getSource(sourceId)) {
-        console.log(`Removing source ${sourceId}`);
         map.removeSource(sourceId);
-      } else {
-        console.log(`Source ${sourceId} not found, skipping removal`);
       }
-    } catch (removeError) {
-      console.error(`Error removing layer/source ${layer.id}:`, removeError);
+    } catch (err) {
+      console.error(`Error removing layer/source ${layer.id}:`, err);
     }
 
     // Update state
-    console.log(`Updating state after removing layer ${layer.id}`);
     setActiveLayers(prev => prev.filter(item => item.id !== layer.id));
     setLayerOrder(prev => prev.filter(id => id !== layer.id));
 
     // Reset selected feature if it came from this layer
     if (selectedLayer?.id === layer.id) {
-      console.log("Resetting selected feature and layer");
       setSelectedFeature(null);
       setSelectedLayer(null);
       setSidebarMode('layers');
     }
+  }, [handleFeatureClick, selectedLayer]);
 
-    // Update legend
-    updateLegend();
-  };
-
-  // Reorder layers with debugging
-  const reorderLayers = (newOrder) => {
-    console.log("reorderLayers called with new order:", newOrder);
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in reorderLayers");
-      return;
-    }
+  // Reorder layers
+  const reorderLayers = useCallback((newOrder) => {
+    if (!mapRef.current) return;
 
     const map = mapRef.current;
 
@@ -947,7 +752,6 @@ export default function MapView() {
     newOrder.forEach((layerId, index) => {
       const mapLayerId = `layer-${layerId}`;
       if (map.getLayer(mapLayerId)) {
-        console.log(`Updating z-index for layer ${mapLayerId} to ${index}`);
         // Check if the style is available and has layers collection
         if (map.style && map.style._layers) {
           const layer = map.style._layers[mapLayerId];
@@ -956,63 +760,50 @@ export default function MapView() {
             layer.metadata.zIndex = index;
           }
         }
-      } else {
-        console.warn(`Layer ${mapLayerId} not found in map`);
       }
     });
 
     // Sort layers by z-index
-    const layers = map.style && map.style._layers ?
-      Object.values(map.style._layers).filter(layer =>
+    const layers = map.style && map.style._layers
+      ? Object.values(map.style._layers).filter(layer =>
         layer.metadata && layer.metadata.zIndex !== undefined
       ) : [];
 
-    console.log(`Sorting ${layers.length} layers by z-index`);
     layers.sort((a, b) => a.metadata.zIndex - b.metadata.zIndex);
 
     // Re-add layers in the correct order
     layers.forEach(layer => {
       if (map.getLayer(layer.id)) {
-        console.log(`Re-adding layer ${layer.id} to maintain correct order`);
         map.removeLayer(layer.id);
         map.addLayer(layer);
       }
     });
 
     // Update state
-    console.log("Updating layer order state");
     setLayerOrder(newOrder);
-  };
+  }, []);
 
-  // Handle searching by coordinates with debugging
-  const searchByCoordinates = async (latitude, longitude) => {
-    console.log(`searchByCoordinates called with lat:${latitude}, lng:${longitude}`);
-
+  // Handle searching by coordinates
+  const searchByCoordinates = useCallback(async (latitude, longitude) => {
     if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-      const errorMsg = 'Please enter valid coordinates';
-      console.error(errorMsg);
-      setError(errorMsg);
+      setError('Please enter valid coordinates');
       return;
     }
 
     try {
-      console.log("Processing coordinate search");
       setIsLoading(true);
       setError(null);
 
       if (!token) {
-        throw new Error("Authentication required for search. Please login.");
+        handleUnauthorizedAccess();
+        return;
       }
 
-      console.log(`Fetching features at location: ${latitude}, ${longitude}`);
       const results = await fetchFeaturesByLatLng(API_BASE_URL, latitude, longitude, token);
-      console.log(`Search returned ${results.length} results`);
-
       setSearchResults(results);
 
       // Fly to location
       if (mapRef.current) {
-        console.log(`Flying to coordinates: ${longitude}, ${latitude}`);
         mapRef.current.flyTo({
           center: [parseFloat(longitude), parseFloat(latitude)],
           zoom: 16,
@@ -1024,39 +815,29 @@ export default function MapView() {
           markerRef.current.remove();
         }
 
-        console.log("Adding marker at search location");
         markerRef.current = new maplibregl.Marker({ color: '#FF0000' })
           .setLngLat([parseFloat(longitude), parseFloat(latitude)])
           .addTo(mapRef.current);
       }
     } catch (err) {
-      const errorMsg = `Search failed: ${err.message}`;
-      console.error(errorMsg, err);
-      setError(errorMsg);
+      setError(`Search failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, handleUnauthorizedAccess]);
 
-  // Handle searching by address/name with debugging
-  const handleAddressSearch = async (query) => {
-    console.log(`handleAddressSearch called with query: ${query}`);
-
+  // Handle searching by address/name
+  const handleAddressSearch = useCallback(async (query) => {
     if (!query) {
-      const errorMsg = 'Please enter a search term';
-      console.error(errorMsg);
-      setError(errorMsg);
+      setError('Please enter a search term');
       return;
     }
 
     try {
-      console.log("Processing address search");
       setIsLoading(true);
       setError(null);
 
-      console.log(`Searching for address: ${query} using ${NOMINATIM_URL}`);
       const results = await searchByAddress(NOMINATIM_URL, query);
-      console.log(`Address search returned ${results.length} results`);
 
       if (results.length === 0) {
         throw new Error('No results found');
@@ -1072,7 +853,6 @@ export default function MapView() {
       // Fly to the first result
       const firstResult = results[0];
       if (mapRef.current && firstResult) {
-        console.log(`Flying to first result: ${firstResult.display_name}`);
         mapRef.current.flyTo({
           center: [parseFloat(firstResult.lon), parseFloat(firstResult.lat)],
           zoom: 16,
@@ -1084,37 +864,30 @@ export default function MapView() {
           markerRef.current.remove();
         }
 
-        console.log("Adding marker at search location");
         markerRef.current = new maplibregl.Marker({ color: '#FF0000' })
           .setLngLat([parseFloat(firstResult.lon), parseFloat(firstResult.lat)])
           .addTo(mapRef.current);
       }
     } catch (err) {
-      const errorMsg = `Search failed: ${err.message}`;
-      console.error(errorMsg, err);
-      setError(errorMsg);
+      setError(`Search failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  // Handle report download with debugging
-  const handleReportDownload = async (khataNo, district, taluka, village) => {
-    console.log(`handleReportDownload called with khataNo:${khataNo}, district:${district}`);
-
+  // Handle report download
+  const handleReportDownload = useCallback(async (khataNo, district, taluka, village) => {
     if (!khataNo || !district) {
-      const errorMsg = 'Missing required information for report download';
-      console.error(errorMsg);
-      setError(errorMsg);
+      setError('Missing required information for report download');
       return;
     }
 
     try {
-      console.log("Processing report download");
       setIsLoading(true);
 
       if (!token) {
-        throw new Error("Authentication required for downloads. Please login.");
+        handleUnauthorizedAccess();
+        return;
       }
 
       const params = new URLSearchParams({
@@ -1126,8 +899,6 @@ export default function MapView() {
       });
 
       const url = `${API_BASE_URL}/report-gen/?${params}`;
-      console.log(`Requesting report from: ${url}`);
-
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -1137,8 +908,6 @@ export default function MapView() {
       if (!response.ok) {
         throw new Error(`Failed to generate report. Status: ${response.status}`);
       }
-
-      console.log("Report generated successfully, downloading");
 
       // Convert response to blob and download
       const blob = await response.blob();
@@ -1150,44 +919,32 @@ export default function MapView() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
-
-      console.log("Report download complete");
-
     } catch (err) {
-      const errorMsg = `Download failed: ${err.message}`;
-      console.error(errorMsg, err);
-      setError(errorMsg);
+      setError(`Download failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, handleUnauthorizedAccess]);
 
-  // Toggle sidebar expansion with debugging
-  const toggleSidebar = (mode) => {
-    console.log(`toggleSidebar called with mode: ${mode}, current mode: ${sidebarMode}, expanded: ${expandedSidebar}`);
-
+  // Toggle sidebar expansion
+  const toggleSidebar = useCallback((mode) => {
     if (sidebarMode === mode && expandedSidebar) {
-      console.log("Collapsing sidebar");
       setExpandedSidebar(false);
     } else {
-      console.log(`Expanding sidebar with mode: ${mode}`);
       setSidebarMode(mode);
       setExpandedSidebar(true);
     }
-  };
+  }, [sidebarMode, expandedSidebar]);
 
   // Extract taluka from layer ID
-  const extractTalukaFromLayerId = (layerId) => {
+  const extractTalukaFromLayerId = useCallback((layerId) => {
     if (!layerId || !layerId.includes('_cadastrals')) return '';
     const taluka = layerId.split('_cadastrals')[0].split('.')[1] || '';
-    console.log(`Extracted taluka "${taluka}" from layer ID: ${layerId}`);
     return taluka;
-  };
+  }, []);
 
-  // Update layer filter with debugging
-  const updateLayerFilter = (layerId, filterDef) => {
-    console.log(`updateLayerFilter called for layer ${layerId}`, filterDef);
-
+  // Update layer filter
+  const updateLayerFilter = useCallback((layerId, filterDef) => {
     setFilterDefinitions(prev => ({
       ...prev,
       [layerId]: filterDef
@@ -1196,22 +953,16 @@ export default function MapView() {
     // Reload the layer with the new filter
     const layer = activeLayers.find(l => l.id === layerId);
     if (layer) {
-      console.log(`Reloading layer ${layerId} with new filter`);
       removeLayer(layer);
       loadLayer(layer);
-    } else {
-      console.warn(`Layer ${layerId} not found in active layers, cannot apply filter`);
     }
-  };
+  }, [activeLayers, loadLayer, removeLayer]);
 
-  // Initialize measurement tool with debugging
-  const initMeasurement = (type) => {
-    console.log(`initMeasurement called with type: ${type}`);
 
-    if (!mapRef.current) {
-      console.error("Map reference not available in initMeasurement");
-      return;
-    }
+
+  // Initialize measurement tool
+  const initMeasurement = useCallback((type) => {
+    if (!mapRef.current) return;
 
     setMeasurementType(type);
     setMeasurementActive(true);
@@ -1223,12 +974,10 @@ export default function MapView() {
 
     // Initialize measurement layer
     if (!measurementLayerRef.current) {
-      console.log("Initializing measurement layer");
       const map = mapRef.current;
 
       try {
         if (!map.getSource('measurement-source')) {
-          console.log("Adding measurement source");
           map.addSource('measurement-source', {
             type: 'geojson',
             data: {
@@ -1239,7 +988,6 @@ export default function MapView() {
         }
 
         if (!map.getLayer('measurement-line')) {
-          console.log("Adding measurement line layer");
           map.addLayer({
             id: 'measurement-line',
             type: 'line',
@@ -1253,7 +1001,6 @@ export default function MapView() {
         }
 
         if (!map.getLayer('measurement-point')) {
-          console.log("Adding measurement point layer");
           map.addLayer({
             id: 'measurement-point',
             type: 'circle',
@@ -1271,28 +1018,15 @@ export default function MapView() {
           points: [],
           line: null
         };
-
-        console.log("Measurement layers initialized successfully");
       } catch (err) {
-        console.error("Error initializing measurement layers:", err);
         setError(`Failed to initialize measurement tool: ${err.message}`);
       }
     }
-  };
+  }, [clearMeasurement]);
 
-  // Handle measurement click with debugging
-  const handleMeasurementClick = (e) => {
-    console.log(`handleMeasurementClick called with coordinates: ${e.lngLat.lng}, ${e.lngLat.lat}`);
-
-    if (!measurementActive) {
-      console.log("Measurement not active, ignoring click");
-      return;
-    }
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in handleMeasurementClick");
-      return;
-    }
+  // Handle measurement click
+  const handleMeasurementClick = useCallback((e) => {
+    if (!measurementActive || !mapRef.current) return;
 
     const map = mapRef.current;
     const { lng, lat } = e.lngLat;
@@ -1300,13 +1034,11 @@ export default function MapView() {
     try {
       // Make sure measurementLayerRef.current exists and has points property
       if (!measurementLayerRef.current) {
-        console.log("Initializing measurement layer reference");
         measurementLayerRef.current = { points: [] };
       }
 
       // Add point to measurement
       measurementLayerRef.current.points.push([lng, lat]);
-      console.log(`Added point [${lng}, ${lat}]. Total points: ${measurementLayerRef.current.points.length}`);
 
       // Update GeoJSON data
       const points = measurementLayerRef.current.points;
@@ -1337,24 +1069,13 @@ export default function MapView() {
       // Update source data
       const source = map.getSource('measurement-source');
       if (source) {
-        console.log("Updating measurement source data");
         source.setData(geojson);
-      } else {
-        console.error("Measurement source not found");
       }
 
       // Calculate measurement
       if (points.length > 1) {
-        console.log(`Calculating ${measurementType} with ${points.length} points`);
-
         if (measurementType === 'distance') {
           // Calculate distance
-          // Import turf functions if not available
-          if (typeof turf === 'undefined') {
-            console.error('Turf.js not available. Cannot calculate distance.');
-            return;
-          }
-
           let distance = 0;
           for (let i = 1; i < points.length; i++) {
             const from = turf.point(points[i - 1]);
@@ -1362,7 +1083,6 @@ export default function MapView() {
             distance += turf.distance(from, to, { units: 'kilometers' });
           }
 
-          console.log(`Calculated distance: ${distance.toFixed(3)} km`);
           setMeasurementResult({
             type: 'distance',
             value: distance.toFixed(3),
@@ -1370,17 +1090,10 @@ export default function MapView() {
           });
         } else if (measurementType === 'area' && points.length > 2) {
           // Calculate area (polygon must be closed)
-          // Import turf functions if not available
-          if (typeof turf === 'undefined') {
-            console.error('Turf.js not available. Cannot calculate area.');
-            return;
-          }
-
           const closedPoints = [...points, points[0]];
           const polygon = turf.polygon([closedPoints]);
           const area = turf.area(polygon) / 1000000; // Convert to sq km
 
-          console.log(`Calculated area: ${area.toFixed(3)} km²`);
           setMeasurementResult({
             type: 'area',
             value: area.toFixed(3),
@@ -1389,61 +1102,33 @@ export default function MapView() {
         }
       }
     } catch (err) {
-      console.error('Error handling measurement click:', err);
       setError(`Measurement failed: ${err.message}`);
     }
-  };
+  }, [measurementActive, measurementType]);
 
-  // Clear measurement with debugging
-  const clearMeasurement = () => {
-    console.log("clearMeasurement called");
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in clearMeasurement");
-      return;
-    }
-
-    const map = mapRef.current;
-
-    // Reset measurement data
-    if (measurementLayerRef.current) {
-      console.log("Resetting measurement data");
-      measurementLayerRef.current.points = [];
-
-      // Update source data
-      const source = map.getSource('measurement-source');
-      if (source) {
-        console.log("Clearing measurement source data");
-        source.setData({
-          type: 'FeatureCollection',
-          features: []
-        });
-      } else {
-        console.log("Measurement source not found, nothing to clear");
-      }
-    }
-
-    setMeasurementResult(null);
-  };
-
-  // Generate heatmap with debugging
-  const generateHeatmap = (layerId, property, colorScheme) => {
-    console.log(`generateHeatmap called with layerId:${layerId}, property:${property}, colorScheme:${colorScheme}`);
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in generateHeatmap");
-      return;
-    }
-
-    if (!layerId || !property) {
-      console.error("Missing required parameters for heatmap");
-      return;
-    }
+  // Generate heatmap
+  const generateHeatmap = useCallback((layerId, property, colorScheme) => {
+    if (!mapRef.current || !layerId || !property) return;
 
     const map = mapRef.current;
 
     // Clear previous heatmap
-    clearHeatmap();
+    if (heatmapLayer) {
+      const oldSourceId = `heatmap-source-${heatmapLayer}`;
+      const oldLayerId = `heatmap-${heatmapLayer}-heatmap`;
+
+      try {
+        if (map.getLayer(oldLayerId)) {
+          map.removeLayer(oldLayerId);
+        }
+
+        if (map.getSource(oldSourceId)) {
+          map.removeSource(oldSourceId);
+        }
+      } catch (err) {
+        console.error("Error clearing previous heatmap:", err);
+      }
+    }
 
     // Set heatmap state
     setHeatmapActive(true);
@@ -1464,17 +1149,12 @@ export default function MapView() {
     const originalSource = map.getSource(originalSourceId);
 
     if (!originalSource) {
-      const errorMsg = `Source not found for layer: ${layerId}`;
-      console.error(errorMsg);
-      setError(errorMsg);
+      setError(`Source not found for layer: ${layerId}`);
       return;
     }
 
     try {
-      console.log(`Creating heatmap for layer ${layerId} using property ${property}`);
-
       // Add heatmap source
-      console.log(`Adding heatmap source ${sourceId}`);
       map.addSource(sourceId, {
         type: 'vector',
         tiles: originalSource._data ? [originalSource._data] : originalSource.tiles,
@@ -1483,7 +1163,6 @@ export default function MapView() {
       });
 
       // Add heatmap layer
-      console.log(`Adding heatmap layer ${layerPrefix}-heatmap`);
       map.addLayer({
         id: `${layerPrefix}-heatmap`,
         type: 'heatmap',
@@ -1515,16 +1194,13 @@ export default function MapView() {
           'heatmap-opacity': 0.8
         }
       });
-
-      console.log("Heatmap created successfully");
     } catch (err) {
-      console.error('Error generating heatmap:', err);
       setError(`Failed to generate heatmap: ${err.message}`);
     }
-  };
+  }, [heatmapLayer]);
 
   // Get heatmap color ramp based on color scheme
-  const getHeatmapColorRamp = (scheme) => {
+  const getHeatmapColorRamp = useCallback((scheme) => {
     const colorRamps = {
       YlOrRd: [
         'interpolate',
@@ -1572,23 +1248,12 @@ export default function MapView() {
       ]
     };
 
-    console.log(`Using color ramp: ${scheme}`);
     return colorRamps[scheme] || colorRamps.YlOrRd;
-  };
+  }, []);
 
-  // Clear heatmap with debugging
-  const clearHeatmap = () => {
-    console.log("clearHeatmap called");
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in clearHeatmap");
-      return;
-    }
-
-    if (!heatmapLayer) {
-      console.log("No active heatmap to clear");
-      return;
-    }
+  // Clear heatmap
+  const clearHeatmap = useCallback(() => {
+    if (!mapRef.current || !heatmapLayer) return;
 
     const map = mapRef.current;
     const sourceId = `heatmap-source-${heatmapLayer}`;
@@ -1597,12 +1262,10 @@ export default function MapView() {
     // Remove layer and source
     try {
       if (map.getLayer(layerId)) {
-        console.log(`Removing heatmap layer ${layerId}`);
         map.removeLayer(layerId);
       }
 
       if (map.getSource(sourceId)) {
-        console.log(`Removing heatmap source ${sourceId}`);
         map.removeSource(sourceId);
       }
     } catch (err) {
@@ -1610,61 +1273,34 @@ export default function MapView() {
     }
 
     // Reset heatmap state
-    console.log("Resetting heatmap state");
     setHeatmapActive(false);
     setHeatmapLayer(null);
     setHeatmapProperty('');
-  };
+  }, [heatmapLayer]);
 
-  // Update legend
-  const updateLegend = () => {
-    console.log("updateLegend called");
-    // Nothing to implement here since it's handled by the LegendPanel component
-    // Just a placeholder to maintain consistency with the original pseudocode
-  };
-
-  // Generate and download map export with debugging
-  const generateMapExport = async (options) => {
-    console.log("generateMapExport called with options:", options);
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in generateMapExport");
-      return;
-    }
+  // Generate and download map export
+  const generateMapExport = useCallback(async (options) => {
+    if (!mapRef.current) return;
 
     try {
-      console.log("Processing map export");
       setIsLoading(true);
 
       const map = mapRef.current;
 
       // Generate a screenshot of the map
       const canvas = map.getCanvas();
-      console.log("Generating map image from canvas");
       const mapImage = canvas.toDataURL('image/png');
 
       // Generate PDF report
       try {
-        // Try to access jsPDF
-        console.log("Attempting to access jsPDF");
-        let jsPDF;
-        if (window.jspdf) {
-          jsPDF = window.jspdf.jsPDF;
-          console.log("Using jsPDF from window.jspdf");
-        } else {
-          // Dynamic import as fallback
-          console.log("Attempting dynamic import of jsPDF");
-          const jspdfModule = await import('jspdf');
-          jsPDF = jspdfModule.default;
-          console.log("Using dynamically imported jsPDF");
-        }
+        // Dynamic import jsPDF
+        const jspdfModule = await import('jspdf');
+        const jsPDF = jspdfModule.default;
 
-        console.log("Creating PDF document");
         const pdf = new jsPDF('landscape', 'mm', 'a4');
 
         // Add title if requested
         if (options.includeTitle && options.title) {
-          console.log(`Adding title: ${options.title}`);
           pdf.setFontSize(18);
           pdf.text(options.title, 20, 20);
           pdf.setFontSize(12);
@@ -1672,13 +1308,11 @@ export default function MapView() {
 
         // Add map image if requested
         if (options.includeMap) {
-          console.log("Adding map image to PDF");
           pdf.addImage(mapImage, 'PNG', 20, options.includeTitle ? 30 : 20, 250, 150);
         }
 
         // Add attributes if requested
         if (options.includeAttributes && selectedFeature) {
-          console.log("Adding feature attributes to PDF");
           const attributesY = options.includeMap ? (options.includeTitle ? 190 : 180) : (options.includeTitle ? 30 : 20);
 
           pdf.setFontSize(14);
@@ -1697,13 +1331,9 @@ export default function MapView() {
         }
 
         // Save the PDF
-        console.log("Saving PDF");
         pdf.save(options.title ? `${options.title}.pdf` : 'map_export.pdf');
-        console.log("PDF saved successfully");
       } catch (pdfErr) {
-        console.error('PDF generation error:', pdfErr);
         // Fallback - just download the map image if PDF generation fails
-        console.log("Falling back to direct image download");
         const link = document.createElement('a');
         link.href = mapImage;
         link.download = options.title ? `${options.title}.png` : 'map_export.png';
@@ -1712,41 +1342,27 @@ export default function MapView() {
         document.body.removeChild(link);
       }
     } catch (err) {
-      const errorMsg = `Export failed: ${err.message}`;
-      console.error(errorMsg, err);
-      setError(errorMsg);
+      setError(`Export failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedFeature]);
 
-  // Zoom to layer extent with debugging
-  const zoomToLayerExtent = async (layerId) => {
-    console.log(`zoomToLayerExtent called for layer: ${layerId}`);
-
-    if (!mapRef.current) {
-      console.error("Map reference not available in zoomToLayerExtent");
-      return;
-    }
-
-    if (!token) {
-      console.error("Authentication token not available");
-      setError("Authentication required to zoom to layer. Please login.");
+  // Zoom to layer extent
+  const zoomToLayerExtent = useCallback(async (layerId) => {
+    if (!mapRef.current || !token) {
+      if (!token) handleUnauthorizedAccess();
       return;
     }
 
     try {
-      console.log("Processing zoom to layer extent");
       setIsLoading(true);
 
-      console.log(`Fetching extent for layer ${layerId}`);
       const extent = await fetchLayerExtent(API_BASE_URL, layerId, token);
 
       if (!extent) {
         throw new Error('Failed to fetch layer extent');
       }
-
-      console.log(`Layer extent: [${extent.join(', ')}]`);
 
       // Convert extent to bounds
       const bounds = [
@@ -1755,149 +1371,104 @@ export default function MapView() {
       ];
 
       // Fit map to bounds
-      console.log(`Fitting map to bounds: ${JSON.stringify(bounds)}`);
       mapRef.current.fitBounds(bounds, {
         padding: 20,
         maxZoom: 16
       });
 
     } catch (err) {
-      const errorMsg = `Failed to zoom to layer: ${err.message}`;
-      console.error(errorMsg, err);
-      setError(errorMsg);
+      setError(`Failed to zoom to layer: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, handleUnauthorizedAccess]);
 
-  // Add a function to simulate layer loading for debugging
-  const debugLoadSimpleLayer = () => {
-    console.log("Loading a debug layer for testing");
+  // Memoize props for child components to prevent unnecessary re-renders
+  const layerControlProps = useMemo(() => ({
+    districts,
+    selectedDistrict,
+    onDistrictChange: setSelectedDistrict,
+    layers,
+    activeLayers,
+    onLayerAdd: loadLayer,
+    onLayerRemove: removeLayer,
+    onLayerOrderChange: reorderLayers,
+    onZoomToLayer: zoomToLayerExtent
+  }), [districts, selectedDistrict, layers, activeLayers, loadLayer, removeLayer, reorderLayers, zoomToLayerExtent]);
 
-    if (!mapRef.current) {
-      console.error("Map not available");
-      return;
+  const featurePanelProps = useMemo(() => ({
+    feature: selectedFeature,
+    khataNos,
+    district: selectedDistrict,
+    taluka: selectedLayer ? extractTalukaFromLayerId(selectedLayer.id) : '',
+    hasMultipleFeatures: featureCollection.length > 1,
+    onPrevFeature: () => navigateFeatures('prev'),
+    onNextFeature: () => navigateFeatures('next'),
+    onClose: () => {
+      setSelectedFeature(null);
+      setSidebarMode('layers');
+    },
+    onDownloadReport: handleReportDownload,
+    onExport: () => {
+      setSidebarMode('export');
+      setExportOptions(prev => ({
+        ...prev,
+        includeAttributes: true
+      }));
     }
+  }), [selectedFeature, khataNos, selectedDistrict, selectedLayer, extractTalukaFromLayerId, featureCollection.length, navigateFeatures, handleReportDownload]);
 
-    const map = mapRef.current;
+  const searchPanelProps = useMemo(() => ({
+    searchCoords,
+    onCoordsChange: setSearchCoords,
+    onSearch: () => searchByCoordinates(searchCoords.latitude, searchCoords.longitude),
+    searchQuery,
+    onSearchQueryChange: setSearchQuery,
+    onAddressSearch: handleAddressSearch,
+    searchResults,
+    onDownloadReport: handleReportDownload
+  }), [searchCoords, searchByCoordinates, searchQuery, handleAddressSearch, searchResults, handleReportDownload]);
 
-    try {
-      // Add a simple GeoJSON source
-      const sourceId = 'debug-source';
-      const layerId = 'debug-layer';
+  const filterPanelProps = useMemo(() => ({
+    activeLayers,
+    selectedLayer: filterActiveLayer,
+    onSelectLayer: setFilterActiveLayer,
+    filterDefinitions,
+    onUpdateFilter: updateLayerFilter,
+    metadata: metadataCache.current
+  }), [activeLayers, filterActiveLayer, filterDefinitions, updateLayerFilter]);
 
-      // Remove if exists
-      if (map.getLayer(layerId)) {
-        map.removeLayer(layerId);
-      }
-      if (map.getSource(sourceId)) {
-        map.removeSource(sourceId);
-      }
+  const measurementToolsProps = useMemo(() => ({
+    active: measurementActive,
+    type: measurementType,
+    result: measurementResult,
+    onMeasurementStart: initMeasurement,
+    onMeasurementClear: clearMeasurement
+  }), [measurementActive, measurementType, measurementResult, initMeasurement, clearMeasurement]);
 
-      // Add debug source
-      map.addSource(sourceId, {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              properties: { name: 'Debug Point', description: 'This is a test point' },
-              geometry: {
-                type: 'Point',
-                coordinates: DEFAULT_CENTER
-              }
-            }
-          ]
-        }
-      });
+  const heatmapControlProps = useMemo(() => ({
+    activeLayers,
+    selectedLayer: heatmapLayer,
+    selectedProperty: heatmapProperty,
+    colorScheme: heatmapColorScheme,
+    metadata: metadataCache.current,
+    onGenerateHeatmap: generateHeatmap,
+    onClearHeatmap: clearHeatmap
+  }), [activeLayers, heatmapLayer, heatmapProperty, heatmapColorScheme, generateHeatmap, clearHeatmap]);
 
-      // Add debug layer
-      map.addLayer({
-        id: layerId,
-        type: 'circle',
-        source: sourceId,
-        paint: {
-          'circle-radius': 10,
-          'circle-color': '#ff0000',
-          'circle-opacity': 0.8
-        }
-      });
-
-      console.log("Debug layer added successfully");
-
-      // Add click handler
-      map.on('click', layerId, (e) => {
-        console.log("Debug layer clicked:", e);
-        if (e.features && e.features[0]) {
-          const props = e.features[0].properties;
-          new maplibregl.Popup()
-            .setLngLat(e.lngLat)
-            .setHTML(`<h3>${props.name}</h3><p>${props.description}</p>`)
-            .addTo(map);
-        }
-      });
-
-    } catch (err) {
-      console.error("Error adding debug layer:", err);
-    }
-  };
+  const exportToolsProps = useMemo(() => ({
+    options: exportOptions,
+    onOptionsChange: setExportOptions,
+    onExport: generateMapExport,
+    hasFeature: !!selectedFeature
+  }), [exportOptions, generateMapExport, selectedFeature]);
 
   return (
     <div className="map-container">
-      {/* Debug Tools - Enable for quick debugging */}
-      <div className="debug-tools" style={{
-        position: 'absolute',
-        top: '15px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        padding: '7px',
-        borderRadius: '5px',
-        display: 'flex',
-        gap: '5px'
-      }}>
-        <button onClick={() => console.log("Map state:", {
-          mapLoaded: mapRef.current ? true : false,
-          token: token ? "Present" : "Missing",
-          layersCount: layers.length,
-          activeLayersCount: activeLayers.length
-        })}>
-          Debug Info
-        </button>
-        <button onClick={debugLoadSimpleLayer}>
-          Load Test Layer
-        </button>
-        <button onClick={() => {
-          localStorage.setItem('authToken', 'debug-token');
-          console.log("Set debug token");
-          setToken('debug-token');
-        }}>
-          Set Test Token
-        </button>
-      </div>
-
       {/* Login Popup */}
       {showLoginPopup && (
-        <div className="auth-popup" style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 2000
-        }}>
-          <div className="auth-popup-content" style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '5px',
-            textAlign: 'center'
-          }}>
+        <div className="auth-popup">
+          <div className="auth-popup-content">
             <p>Please login to continue</p>
           </div>
         </div>
@@ -2015,133 +1586,44 @@ export default function MapView() {
             onStyleChange={setMapStyle}
           />
 
-          {/* Layers Panel */}
-          {/* {sidebarMode === 'layers' && (
-            <LayerControl
-              districts={districts}
-              selectedDistrict={selectedDistrict}
-              onDistrictChange={setSelectedDistrict}
-              layers={layers}
-              activeLayers={activeLayers}
-              layerOrder={layerOrder}
-              onLayerAdd={(layer) => {
-                console.log("LayerControl: onLayerAdd triggered for layer:", layer);
-                loadLayer(layer);
-              }}
-              onLayerRemove={removeLayer}
-              onLayerOrderChange={reorderLayers}
-              onZoomToLayer={zoomToLayerExtent}
-            />
-          )} */}
-
+          {/* Layers Panel in Popup */}
           {layerPopupOpen && (
             <div className="layer-popup">
               <div className="popup-content">
                 <button className="close-btn" onClick={() => setLayerPopupOpen(false)}>✖</button>
-                <LayerControl
-                  districts={districts}
-                  selectedDistrict={selectedDistrict}
-                  onDistrictChange={setSelectedDistrict}
-                  layers={layers}
-                  activeLayers={activeLayers}
-                  layerOrder={layerOrder}
-                  onLayerAdd={(layer) => {
-                    console.log("LayerControl: onLayerAdd triggered for layer:", layer);
-                    loadLayer(layer);
-                    setLayerPopupOpen(false); // Close popup after selection
-                  }}
-                  onLayerRemove={removeLayer}
-                  onLayerOrderChange={reorderLayers}
-                  onZoomToLayer={zoomToLayerExtent}
-                />
+                <LayerControl {...layerControlProps} />
               </div>
             </div>
           )}
 
-
           {/* Search Panel */}
           {sidebarMode === 'search' && (
-            <SearchPanel
-              searchCoords={searchCoords}
-              onCoordsChange={setSearchCoords}
-              onSearch={() => searchByCoordinates(searchCoords.latitude, searchCoords.longitude)}
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-              onAddressSearch={handleAddressSearch}
-              searchResults={searchResults}
-              onDownloadReport={handleReportDownload}
-            />
+            <SearchPanel {...searchPanelProps} />
           )}
 
           {/* Feature Panel */}
           {sidebarMode === 'feature' && selectedFeature && (
-            <FeaturePanel
-              feature={selectedFeature}
-              khataNos={khataNos}
-              district={selectedDistrict}
-              taluka={selectedLayer ? extractTalukaFromLayerId(selectedLayer.id) : ''}
-              hasMultipleFeatures={featureCollection.length > 1}
-              onPrevFeature={() => navigateFeatures('prev')}
-              onNextFeature={() => navigateFeatures('next')}
-              onClose={() => {
-                setSelectedFeature(null);
-                setSidebarMode('layers');
-              }}
-              onDownloadReport={handleReportDownload}
-              onExport={() => {
-                setSidebarMode('export');
-                setExportOptions(prev => ({
-                  ...prev,
-                  includeAttributes: true
-                }));
-              }}
-            />
+            <FeaturePanel {...featurePanelProps} />
           )}
 
           {/* Filter Panel */}
           {sidebarMode === 'filter' && (
-            <FilterPanel
-              activeLayers={activeLayers}
-              selectedLayer={filterActiveLayer}
-              onSelectLayer={setFilterActiveLayer}
-              filterDefinitions={filterDefinitions}
-              onUpdateFilter={updateLayerFilter}
-              metadata={metadataCache.current}
-            />
+            <FilterPanel {...filterPanelProps} />
           )}
 
           {/* Measurement Tools */}
           {sidebarMode === 'measurement' && (
-            <MeasurementTools
-              active={measurementActive}
-              type={measurementType}
-              result={measurementResult}
-              onMeasurementStart={initMeasurement}
-              onMeasurementClear={clearMeasurement}
-            />
+            <MeasurementTools {...measurementToolsProps} />
           )}
 
           {/* Heatmap Control */}
           {sidebarMode === 'heatmap' && (
-            <HeatmapControl
-              activeLayers={activeLayers}
-              selectedLayer={heatmapLayer}
-              selectedProperty={heatmapProperty}
-              colorScheme={heatmapColorScheme}
-              metadata={metadataCache.current}
-              onGenerateHeatmap={generateHeatmap}
-              onClearHeatmap={clearHeatmap}
-            />
+            <HeatmapControl {...heatmapControlProps} />
           )}
 
           {/* Export Tools */}
           {sidebarMode === 'export' && (
-            <ExportTools
-              options={exportOptions}
-              onOptionsChange={setExportOptions}
-              onExport={generateMapExport}
-              hasFeature={!!selectedFeature}
-            />
+            <ExportTools {...exportToolsProps} />
           )}
 
           {/* Legend Panel - Always visible when sidebar is open */}
