@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Home.css';
-
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 export default function Home() {
     const router = useRouter();
     const [isAuthenticated, setIsAuthenticated] = useState(false);

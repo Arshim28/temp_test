@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { FaGoogle, FaFacebook, FaApple, FaArrowLeft } from 'react-icons/fa';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export default function SigninRegisterPage() {
     const [step, setStep] = useState('signIn');
@@ -42,7 +43,7 @@ export default function SigninRegisterPage() {
         e.preventDefault();
         try {
             setLoading(true);
-            const response = await axios.post('http://65.2.140.129:8000/api/users/login/', {
+            const response = await axios.post(`${BASE_URL}/users/login/`, {
                 user: { email, password },
             });
 
@@ -64,7 +65,7 @@ export default function SigninRegisterPage() {
     const handleForgotPassword = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://65.2.140.129:8000/api/users/forgot-password/', { email });
+            await axios.post(`${BASE_URL}/users/forgot-password/`, { email });
             setStep('enterOtp');
         } catch (err) {
             setError('Error sending OTP. Try again.');
@@ -76,7 +77,7 @@ export default function SigninRegisterPage() {
     const handleGetOtp = async () => {
         try {
             setLoadingOtp(true); // Show "Generating OTP..." message
-            const response = await axios.post('http://65.2.140.129:8000/api/otp/request/', { email });
+            const response = await axios.post(`${BASE_URL}/otp/request/`, { email });
 
             if (response.status === 200) {
                 setPreviousStep(step);
@@ -93,7 +94,7 @@ export default function SigninRegisterPage() {
     const handleVerifyOtp = async () => {
         console.log('Verifying OTP:', otp, email); // Debugging
         try {
-            const response = await axios.post('http://65.2.140.129:8000/api/otp/verify/', { email, otp });
+            const response = await axios.post(`${BASE_URL}/otp/verify/`, { email, otp });
 
             if (response.status === 200) {
                 setVerificationToken(response.data.verification_token); // Store verification token
@@ -116,7 +117,7 @@ export default function SigninRegisterPage() {
             return;
         }
         try {
-            await axios.post('http://65.2.140.129:8000/api/users/forgot-password/', { email, password, verification_token: verificationToken });
+            await axios.post(`${BASE_URL}/users/forgot-password/`, { email, password, verification_token: verificationToken });
             setStep('signIn');
         } catch (err) {
             setError('Error resetting password.');
@@ -161,7 +162,7 @@ export default function SigninRegisterPage() {
         setError({});
 
         try {
-            const response = await axios.post('http://65.2.140.129:8000/api/users/', {
+            const response = await axios.post(`${BASE_URL}/users/`, {
                 user: {
                     name,
                     email,

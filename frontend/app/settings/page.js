@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Settings.css';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export default function Settings() {
     const router = useRouter();
@@ -19,7 +20,7 @@ export default function Settings() {
 
         const fetchUserData = async () => {
             try {
-                const response = await axios.get('http://65.2.140.129:8000/api/user/', {
+                const response = await axios.get(`${BASE_URL}/user/`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setUserDetails(response.data.user);

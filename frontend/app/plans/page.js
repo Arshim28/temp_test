@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import axios from 'axios';
 import './PlansPage.css';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 export default function PlansPage() {
     const router = useRouter();
@@ -22,11 +23,11 @@ export default function PlansPage() {
 
         const fetchPlans = async () => {
             try {
-                const userResponse = await axios.get('http://65.2.140.129:8000/api/user/', {
+                const userResponse = await axios.get(`${BASE_URL}/user/`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
-                const plansResponse = await axios.get('http://65.2.140.129:8000/api/plans/reports/', {
+                const plansResponse = await axios.get(`${BASE_URL}/plans/reports/`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 console.log('Plans:', plansResponse.data);
@@ -60,7 +61,7 @@ export default function PlansPage() {
             bodyData.append("response", JSON.stringify(response));
 
             await axios.post(
-                "http://65.2.140.129:8000/api/plans/payment/success/",
+                `${BASE_URL}/plans/payment/success/`,
                 bodyData,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -83,7 +84,7 @@ export default function PlansPage() {
             if (plan.price === "0.00") {
                 // If the plan is free, call the free reports API instead
                 await axios.post(
-                    "http://65.2.140.129:8000/api/plans/free-report/",
+                    `${BASE_URL}/plans/free-report/`,
                     { plan_id: plan.id },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
@@ -108,7 +109,7 @@ export default function PlansPage() {
             bodyData.append("order_type", "report");
 
             const orderResponse = await axios.post(
-                "http://65.2.140.129:8000/api/plans/create-order/",
+                `${BASE_URL}/plans/create-order/`,
                 bodyData,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -119,8 +120,8 @@ export default function PlansPage() {
 
             // Step 3: Initiate Razorpay Payment
             const options = {
-                key_id: process.env.REACT_APP_PUBLIC_KEY || "",
-                key_secret: process.env.REACT_APP_RAZORPAY_KEY || "",
+                key_id: process.env.NEXT_PUBLIC_KEY || "",
+                key_secret: process.env.NEXT_PUBLIC_RAZORPAY_KEY || "",
                 amount: orderAmount,
                 currency: "INR",
                 name: "TerraStack",
