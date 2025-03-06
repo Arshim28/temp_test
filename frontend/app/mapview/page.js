@@ -35,7 +35,7 @@ import {
 } from './components';
 
 // Constants
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://43.204.226.30:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://43.204.226.30:8001/api';
 const TILE_SERVER_URL = process.env.NEXT_PUBLIC_TILE_SERVER_URL || 'http://43.204.226.30:7800';
 const TILE_ENDPOINT_URL = process.env.NEXT_PUBLIC_TILE_ENDPOINT_URL || 'http://43.204.226.30:8088';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
@@ -507,10 +507,10 @@ export default function MapView() {
       const tokenParam = tileUrl.includes('token=') ? tileUrl.split('token=')[1] : '';
       
       // Format for OpenResty proxy container at port 8088
-      const formattedLayerId = layer.id.replace(/\./g, '/');
+
       const finalTileUrl = filter
-        ? `${TILE_ENDPOINT_URL}/${formattedLayerId}/{z}/{x}/{y}.pbf?token=${tokenParam}&cql_filter=${encodeURIComponent(filter)}`
-        : `${TILE_ENDPOINT_URL}/${formattedLayerId}/{z}/{x}/{y}.pbf?token=${tokenParam}`;
+        ? `${TILE_ENDPOINT_URL}/${layer.id}/{z}/{x}/{y}.pbf?token=${tokenParam}&cql_filter=${encodeURIComponent(filter)}`
+        : `${TILE_ENDPOINT_URL}/${layer.id}/{z}/{x}/{y}.pbf?token=${tokenParam}`;
 
       // Add source with error handling
       try {
