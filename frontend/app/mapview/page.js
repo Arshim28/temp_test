@@ -1586,16 +1586,19 @@ export default function MapView() {
             onStyleChange={setMapStyle}
           />
 
-          {/* Layers Panel in Popup */}
           {layerPopupOpen && (
             <div className="layer-popup">
               <div className="popup-content">
-                <button className="close-btn" onClick={() => setLayerPopupOpen(false)}>✖</button>
                 <LayerControl {...layerControlProps} />
+                <button 
+                  className="done-btn" 
+                  onClick={() => setLayerPopupOpen(false)}
+                >
+                  Done
+                </button>
               </div>
             </div>
           )}
-
           {/* Search Panel */}
           {sidebarMode === 'search' && (
             <SearchPanel {...searchPanelProps} />
