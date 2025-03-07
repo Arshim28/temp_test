@@ -112,7 +112,7 @@ class ListReportPlansView(ListAPIView):
         return ReportPlan.objects.filter(user=self.request.user)
 
 
-class KhataNumbersView(View):
+class KhataNumbersView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -494,7 +494,6 @@ def get_khata_preview(request):
 #     return Response(details, status=status.HTTP_200_OK)
 
 
-@api_view(["GET"])
 # @permission_classes([IsAuthenticated])
 @api_view(["GET"])
 def report_info_from_khata(request):

@@ -277,7 +277,6 @@ export default function ReportPage() {
     // };
 
     // end of changes
-
     const fetchReportsByKhata = async (khata_no, district, taluka, village) => {
         if (!khata_no || khata_no.trim() === "") {
             alert("Please enter a valid Khata.");
@@ -286,14 +285,16 @@ export default function ReportPage() {
     
         try {
             setIsLoading(true);
-            // Use the existing khata-preview endpoint instead
+            // Use the khata/report-info endpoint instead of khata-preview
             const params = new URLSearchParams({
-                district: district.toLowerCase(),
-                taluka: taluka.toLowerCase(),
-                village: village.toLowerCase()
+                number: khata_no,
+                type: "khata",
+                district: district,
+                taluka: taluka,
+                village: village
             });
     
-            const response = await fetch(`${BASE_URL}/khata-preview/?${params}`, {
+            const response = await fetch(`${BASE_URL}/khata/report-info/?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
     
@@ -302,14 +303,8 @@ export default function ReportPage() {
             }
     
             const data = await response.json();
-            
-            // Filter the results to get only the selected khata
-            const filteredData = data.filter(item => 
-                item.khata_no.toString() === khata_no.toString()
-            );
-            
-            console.log("Khata Preview Response:", filteredData);
-            setReports(filteredData);
+            console.log("Khata Report Info Response:", data);
+            setReports(data);
         } catch (error) {
             console.error("Error in fetching reports by khata:", error);
             alert("Fetching Reports Failed");
@@ -325,13 +320,16 @@ export default function ReportPage() {
     
         try {
             setIsLoading(true);
+            // Use the same endpoint with type=gat
             const params = new URLSearchParams({
-                district: district.toLowerCase(),
-                taluka: taluka.toLowerCase(),
-                village: village.toLowerCase()
+                number: gat_no,
+                type: "gat",
+                district: district,
+                taluka: taluka,
+                village: village
             });
     
-            const response = await fetch(`${BASE_URL}/khata-preview/?${params}`, {
+            const response = await fetch(`${BASE_URL}/khata/report-info/?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
     
@@ -340,15 +338,8 @@ export default function ReportPage() {
             }
     
             const data = await response.json();
-            
-            // Filter the results to get only khatas with matching gat_no
-            // Note: You'll need to adjust this filter if gat_no is stored differently
-            const filteredData = data.filter(item => 
-                item.gat_no && item.gat_no.toString() === gat_no.toString()
-            );
-            
-            console.log("Gat Preview Response:", filteredData);
-            setReports(filteredData);
+            console.log("Gat Report Info Response:", data);
+            setReports(data);
         } catch (error) {
             console.error("Error in fetching reports by gat:", error);
             alert("Fetching Reports Failed");
@@ -356,6 +347,7 @@ export default function ReportPage() {
             setIsLoading(false);
         }
     };
+
 const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
     if (!survey_no || survey_no.trim() === "") {
         alert("Please enter a valid Survey Number.");
@@ -364,13 +356,16 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
 
     try {
         setIsLoading(true);
+        // Use the same endpoint with type=survey
         const params = new URLSearchParams({
-            district: district.toLowerCase(),
-            taluka: taluka.toLowerCase(),
-            village: village.toLowerCase()
+            number: survey_no,
+            type: "survey",
+            district: district,
+            taluka: taluka,
+            village: village
         });
 
-        const response = await fetch(`${BASE_URL}/khata-preview/?${params}`, {
+        const response = await fetch(`${BASE_URL}/khata/report-info/?${params}`, {
             headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -379,15 +374,8 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
         }
 
         const data = await response.json();
-        
-        // Filter the results to get only khatas with matching survey_no
-        // Note: You'll need to adjust this filter if survey_no is stored differently
-        const filteredData = data.filter(item => 
-            item.survey_no && item.survey_no.toString() === survey_no.toString()
-        );
-        
-        console.log("Survey Preview Response:", filteredData);
-        setReports(filteredData);
+        console.log("Survey Report Info Response:", data);
+        setReports(data);
     } catch (error) {
         console.error("Error in fetching reports by survey:", error);
         alert("Fetching Reports Failed");
@@ -395,7 +383,6 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
         setIsLoading(false);
     }
 };
-
     const downloadReportPDF = async (khata_no, district, taluka, village, poltID) => {
         if (!khata_no) {
             alert("Please enter a valid Khata.");
@@ -774,32 +761,36 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
                 {/* Search Results */}
                 {/* Search Results */}
                 <div
-                    className="mt-3 overflow-auto"
-                    style={{ maxHeight: "400px" }}
-                >
-                    {isLoading ? (
-                        <div className="text-center my-3">
-                            <div
-                                className="spinner-border text-dark"
-                                role="status"
-                            >
-                                <span className="visually-hidden">
-                                    Loading...
-                                </span>
-                            </div>
-                            <p>Fetching reports, please wait...</p>
+                className="mt-3 overflow-auto"
+                style={{ maxHeight: "400px" }}
+            >
+                {isLoading ? (
+                    <div className="text-center my-3">
+                        <div
+                            className="spinner-border text-dark"
+                            role="status"
+                        >
+                            <span className="visually-hidden">
+                                Loading...
+                            </span>
                         </div>
-                    ) : (
-                        reports
-                            .filter(
-                                (report) =>
-                                    !filters.KhataNumber ||
-                                    report.khata_no === filters.KhataNumber,
-                            )
-                            .slice(0, 5)
-                            .map((report, index) => (
+                        <p>Fetching reports, please wait...</p>
+                    </div>
+                ) : (
+                    reports
+                        .filter(
+                            (report) =>
+                                !filters.KhataNumber ||
+                                report.khata_no === filters.KhataNumber,
+                        )
+                        .slice(0, 5)
+                        .map((report, index) => {
+                            // Create a unique composite key using multiple properties
+                            const uniqueKey = `${report.khata_no}_${report.village_name || ''}_${report.plot_id || ''}_${index}`;
+                            
+                            return (
                                 <div
-                                    key={index}
+                                    key={uniqueKey}
                                     className="card mb-2 shadow-sm"
                                 >
                                     <div className="card-body d-flex justify-content-between align-items-center">
@@ -807,6 +798,18 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
                                             <h5 className="card-title">
                                                 Khata Number: {report.khata_no}
                                             </h5>
+                                            {report.gat_no && (
+                                                <p className="card-text">
+                                                    <strong>Gat Number:</strong>{" "}
+                                                    {report.gat_no}
+                                                </p>
+                                            )}
+                                            {report.survey_no && (
+                                                <p className="card-text">
+                                                    <strong>Survey Number:</strong>{" "}
+                                                    {report.survey_no}
+                                                </p>
+                                            )}
                                             <p className="card-text">
                                                 <strong>District:</strong>{" "}
                                                 {report.district}
@@ -828,18 +831,20 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
                                                     report.district,
                                                     report.taluka,
                                                     report.village_name,
-                                                    report.plot_id,
+                                                    report.plot_id
                                                 )
                                             }
+                                            disabled={!report.plot_id}
+                                            title={!report.plot_id ? "Plot ID not available" : "Download Report"}
                                         >
-                                            {/* Download Report */}
                                             <FaDownload />
                                         </button>
                                     </div>
                                 </div>
-                            ))
-                    )}
-                </div>
+                            );
+                        })
+                )}
+            </div>
             </div>
 
             {/* Lower Container: Placeholder Images */}
