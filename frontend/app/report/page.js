@@ -1,7 +1,7 @@
 "use client";
 import "./ReportPage.css";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaDownload } from "react-icons/fa";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import JSZip from "jszip";
@@ -61,6 +61,14 @@ export default function ReportPage() {
                     },
                 );
 
+                const userResponse = await axios.get(`${BASE_URL}/user/`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                setUserDetails(userResponse.data.user);
+
+                console.log("User Details:", userResponse.data.user);
+
+
                 setHierarchy(res.data);
             } catch (error) {
                 console.error("Error fetching hierarchy:", error);
@@ -84,6 +92,9 @@ export default function ReportPage() {
                 console.log("Plans:", plansResponse.data);
 
                 setUserDetails(userResponse.data.user);
+
+                console.log("User Details:", userResponse.data.user);
+
                 setPlans(plansResponse.data || []);
                 setSelectedPlan(plansResponse.data?.[0] || null); // Default selection
             } catch (err) {
@@ -514,6 +525,22 @@ export default function ReportPage() {
                         Khata Number
                     </button>
                     <button
+                        className={`btn ${searchType === "gat" ? " text-decoration-underline fw-bold" : ""}`}
+                        onClick={() => setSearchType("gat")}
+                        style={{ border: "none", textTransform: "uppercase" }}
+                    >
+                        {/* <FaSearch className="me-2" /> */}
+                        Gat Number
+                    </button>
+                    <button
+                        className={`btn ${searchType === "survey" ? " text-decoration-underline fw-bold" : ""}`}
+                        onClick={() => setSearchType("survey")}
+                        style={{ border: "none", textTransform: "uppercase" }}
+                    >
+                        {/* <FaSearch className="me-2" /> */}
+                        Survey Number
+                    </button>
+                    <button
                         className={`btn ${searchType === "coordinates" ? " text-decoration-underline fw-bold" : ""}`}
                         onClick={() => setSearchType("coordinates")}
                         style={{ border: "none", textTransform: "uppercase" }}
@@ -524,7 +551,7 @@ export default function ReportPage() {
                 </div>
 
                 {/* Filters (Only for Khata & Owner) */}
-                {(searchType === "khata" || searchType === "owner") && (
+                {(searchType === "khata" || searchType === "gat" || searchType === "survey" || searchType === "owner") && (
                     <div className="row g-3 mt-3 p-6">
                         <div className="col-md-3" >
                             <select className="form-select" disabled>
@@ -597,98 +624,100 @@ export default function ReportPage() {
                 {/* Search Bar */}
                 <div className="input-group mt-3">
                     {searchType === "khata" && (
-                        <>
-                            <div className="col-md-3 d-flex align-items-center w-100 mb-3">
-                                <select
-                                    className="form-select me-2 flex-grow-1"
-                                    onChange={(e) =>
-                                        handleFilterChange("khataNumber", e.target.value)
-                                    }
-                                    disabled={!filters.village}
-                                >
-                                    <option value="">Select Khata Number</option>
-                                    {khataNumbers.map((k) => (
-                                        <option key={k} value={k}>
-                                            {k}
-                                        </option>
-                                    ))}
-                                </select>
-                                <button
-                                    className="btn btn-dark ms-2"
-                                    onClick={() =>
-                                        fetchReportsByKhata(
-                                            filters.khataNumber,
-                                            filters.district,
-                                            filters.taluka,
-                                            filters.village
-                                        )
-                                    }
-                                    disabled={!filters.khataNumber} // Disable if no Khata number is selected
-                                >
-                                    Search
-                                </button>
-                            </div>
-                            <div className="col-md-3 d-flex align-items-center w-100 mb-3">
-                                <select
-                                    className="form-select me-2 flex-grow-1"
-                                    onChange={(e) =>
-                                        handleFilterChange("gatNumber", e.target.value)
-                                    }
-                                    disabled={!filters.village}
-                                >
-                                    <option value="">Select Gat Number</option>
-                                    {gatNumbers.map((g) => (
-                                        <option key={g} value={g}>
-                                            {g}
-                                        </option>
-                                    ))}
-                                </select>
-                                <button
-                                    className="btn btn-dark ms-2"
-                                    onClick={() =>
-                                        fetchReportsByGat(
-                                            filters.gatNumber,
-                                            filters.district,
-                                            filters.taluka,
-                                            filters.village
-                                        )
-                                    }
-                                    disabled={!filters.gatNumber} // Disable if no Gat number is selected
-                                >
-                                    Search
-                                </button>
-                            </div>
-                            <div className="col-md-3 d-flex align-items-center w-100">
-                                <select
-                                    className="form-select me-2 flex-grow-1"
-                                    onChange={(e) =>
-                                        handleFilterChange("surveyNumber", e.target.value)
-                                    }
-                                    disabled={!filters.village}
-                                >
-                                    <option value="">Select Survey Number</option>
-                                    {surveyNumbers.map((s) => (
-                                        <option key={s} value={s}>
-                                            {s}
-                                        </option>
-                                    ))}
-                                </select>
-                                <button
-                                    className="btn btn-dark ms-2"
-                                    onClick={() =>
-                                        fetchReportsBySurvey(
-                                            filters.surveyNumber,
-                                            filters.district,
-                                            filters.taluka,
-                                            filters.village
-                                        )
-                                    }
-                                    disabled={!filters.surveyNumber} // Disable if no Survey number is selected
-                                >
-                                    Search
-                                </button>
-                            </div>
-                        </>
+                        <div className="col-md-3 d-flex align-items-center w-100 mb-3">
+                            <select
+                                className="form-select me-2 flex-grow-1"
+                                onChange={(e) =>
+                                    handleFilterChange("khataNumber", e.target.value)
+                                }
+                                disabled={!filters.village}
+                            >
+                                <option value="">Select Khata Number</option>
+                                {khataNumbers.map((k) => (
+                                    <option key={k} value={k}>
+                                        {k}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                className="btn btn-dark ms-2"
+                                onClick={() =>
+                                    fetchReportsByKhata(
+                                        filters.khataNumber,
+                                        filters.district,
+                                        filters.taluka,
+                                        filters.village
+                                    )
+                                }
+                                disabled={!filters.khataNumber} // Disable if no Khata number is selected
+                            >
+                                Search
+                            </button>
+                        </div>
+                    )}
+                    {searchType === "gat" && (
+                        <div className="col-md-3 d-flex align-items-center w-100 mb-3">
+                            <select
+                                className="form-select me-2 flex-grow-1"
+                                onChange={(e) =>
+                                    handleFilterChange("gatNumber", e.target.value)
+                                }
+                                disabled={!filters.village}
+                            >
+                                <option value="">Select Gat Number</option>
+                                {gatNumbers.map((g) => (
+                                    <option key={g} value={g}>
+                                        {g}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                className="btn btn-dark ms-2"
+                                onClick={() =>
+                                    fetchReportsByGat(
+                                        filters.gatNumber,
+                                        filters.district,
+                                        filters.taluka,
+                                        filters.village
+                                    )
+                                }
+                                disabled={!filters.gatNumber} // Disable if no Gat number is selected
+                            >
+                                Search
+                            </button>
+                        </div>
+                    )}
+                    {searchType === "survey" && (
+                        <div className="col-md-3 d-flex align-items-center w-100 mb-3">
+                            <select
+                                className="form-select me-2 flex-grow-1"
+                                onChange={(e) =>
+                                    handleFilterChange("surveyNumber", e.target.value)
+                                }
+                                disabled={!filters.village}
+                            >
+                                <option value="">Select Survey Number</option>
+                                {surveyNumbers.map((s) => (
+                                    <option key={s} value={s}>
+                                        {s}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                className="btn btn-dark ms-2"
+                                onClick={() =>
+                                    fetchReportsBySurvey(
+                                        filters.surveyNumber,
+                                        filters.district,
+                                        filters.taluka,
+                                        filters.village
+                                    )
+                                }
+                                disabled={!filters.surveyNumber} // Disable if no Survey number is selected
+                            >
+                                Search
+                            </button>
+                        </div>
                     )}
                     {searchType === "owner" && (
                         <input
@@ -704,7 +733,7 @@ export default function ReportPage() {
                         <>
                             <input
                                 type="text"
-                                className="form-control"
+                                className="form-control me-4"
                                 placeholder="Latitude"
                                 onChange={(e) =>
                                     handleFilterChange("latitude", e.target.value)
@@ -712,7 +741,7 @@ export default function ReportPage() {
                             />
                             <input
                                 type="text"
-                                className="form-control"
+                                className="form-control me-4"
                                 placeholder="Longitude"
                                 onChange={(e) =>
                                     handleFilterChange("longitude", e.target.value)
@@ -735,7 +764,6 @@ export default function ReportPage() {
                         </>
                     )}
                 </div>
-
                 {/* Search Results */}
                 {/* Search Results */}
                 <div
@@ -797,7 +825,8 @@ export default function ReportPage() {
                                                 )
                                             }
                                         >
-                                            Download Report
+                                            {/* Download Report */}
+                                            <FaDownload />
                                         </button>
                                     </div>
                                 </div>

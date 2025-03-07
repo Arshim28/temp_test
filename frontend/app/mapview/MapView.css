@@ -210,15 +210,34 @@
   background: white;
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
   padding: 20px;
-  z-index: 1000;
-  border-radius: 8px;
-  max-width: 400px;
-  width: 100%;
+  z-index: 3000; /* Increased value */
+  border-radius: 4px;
+  max-width: 375px;
+  width: 40%;
+
 }
 
 .popup-content {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+.done-btn {
+  z-index: 3001;
+  align-self: flex-end;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: bold;
+  /*Distance from top, right, bottom, left*/
+  margin-top: 0px;
+  
+}
+
+.done-btn:hover {
+  background: #3a7bca;
 }
 /* Add to frontend/app/mapview/MapView.css */
 .map-auth-required {
@@ -253,26 +272,4 @@
 .auth-button:hover {
   background-color: #0056b3;
 }
-.popup-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 20px; /* Space above the footer */
-  width: 100%;
-}
 
-.done-btn {
-  align-self: flex-end;
-  margin-top: 15px;
-  background: #4a90e2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  font-size: 14px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.done-btn:hover {
-  background: #3a7bca;
-}

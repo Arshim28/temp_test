@@ -319,6 +319,8 @@ export default function MapView() {
   // Initialize or update map when mapStyle changes
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    
+    console.log("[MAP INIT] Starting map initialization with style:", mapStyle);
 
     // Function to initialize map
     const initializeMap = () => {
@@ -327,15 +329,17 @@ export default function MapView() {
         if (mapRef.current) {
           try {
             // Just update the style instead of removing and recreating
+            console.log("[MAP INIT] Updating existing map style to:", mapStyle);
             mapRef.current.setStyle(MAP_STYLES[mapStyle]);
             return;
           } catch (e) {
-            console.error("Error updating map style:", e);
+            console.error("[MAP INIT] Error updating map style:", e);
             // If updating fails, proceed to recreate the map
             mapRef.current.remove();
           }
         }
         
+        console.log("[MAP INIT] Creating new map with style:", mapStyle);
         // Create new map
         const map = new maplibregl.Map({
           container: mapContainerRef.current,
@@ -368,26 +372,34 @@ export default function MapView() {
 
         // Add event listeners
         map.on('load', () => {
+          console.log("[MAP INIT] Map loaded successfully");
           // Reload active layers when map is ready
           if (activeLayers.length > 0) {
+            console.log("[MAP INIT] Re-adding active layers:", activeLayers.length);
             activeLayers.forEach(layer => loadLayer(layer));
           }
         });
 
         map.on('click', (e) => {
+          console.log("[MAP CLICK]", e);
+          console.log("[INFO MODE]", infoModeActive);
           if (infoModeActive) {
+            console.log("[INFO MODE] Handling feature info request");
             handleFeatureInfoRequest(e);
           }
 
           if (measurementActive) {
+            console.log("[MEASUREMENT] Processing click event");
             handleMeasurementClick(e);
           }
         });
 
         map.on('error', (e) => {
+          console.error("[MAP ERROR]", e.error?.message || 'Unknown error');
           setError(`Map error: ${e.error?.message || 'Unknown error'}`);
         });
       } catch (err) {
+        console.error("[MAP INIT] Failed to initialize map:", err.message);
         setError(`Failed to initialize map: ${err.message}`);
       }
     };
@@ -397,6 +409,7 @@ export default function MapView() {
     // Cleanup function
     return () => {
       if (mapRef.current) {
+        console.log("[MAP CLEANUP] Removing map instance");
         mapRef.current.remove();
         mapRef.current = null;
       }
@@ -405,7 +418,10 @@ export default function MapView() {
 
   // Load a layer onto the map
   const loadLayer = useCallback(async (layer) => {
+    console.log("[LAYER] Loading layer:", layer.id);
+    
     if (!mapRef.current || !token) {
+      console.log("[LAYER] Cannot load layer - map or token missing");
       if (!token) handleUnauthorizedAccess();
       return;
     }
@@ -414,12 +430,14 @@ export default function MapView() {
 
     // Check if map is loaded
     if (!map.loaded()) {
+      console.log("[LAYER] Map not fully loaded, waiting for load event");
       map.once('load', () => loadLayer(layer));
       return;
     }
 
     // Skip if layer is already loaded
     if (activeLayers.find(activeLayer => activeLayer.id === layer.id)) {
+      console.log("[LAYER] Layer already loaded, setting as selected:", layer.id);
       setSelectedLayer(layer);
       return;
     }
@@ -427,18 +445,23 @@ export default function MapView() {
     try {
       setIsLoading(true);
       setError(null);
+      console.log("[LAYER] Fetching tile URL for layer:", layer.id);
 
       // Fetch tile URL with authentication token
       const tileUrl = await fetchTileUrl(API_BASE_URL, layer.id, token);
+      console.log("[LAYER] Received tile URL:", tileUrl ? "Success" : "Failed");
 
       // Fetch layer metadata if not already cached
       if (!metadataCache.current[layer.id]) {
+        console.log("[LAYER] Fetching metadata for layer:", layer.id);
         const metadata = await fetchMetadata(TILE_SERVER_URL, layer.id);
         metadataCache.current[layer.id] = metadata;
+        console.log("[LAYER] Metadata received:", metadata ? "Success" : "Failed");
       }
 
       const metadata = metadataCache.current[layer.id];
       const geometryType = metadata?.geometrytype;
+      console.log("[LAYER] Layer geometry type:", geometryType);
 
       if (!geometryType) {
         throw new Error(`Geometry type not found for layer: ${layer.name || layer.id}`);
@@ -492,6 +515,7 @@ export default function MapView() {
 
       // Check if source already exists, remove it if it does
       if (map.getSource(sourceId)) {
+        console.log("[LAYER] Source already exists, removing:", sourceId);
         map.removeLayer(layerId);
         map.removeSource(sourceId);
       }
@@ -499,35 +523,41 @@ export default function MapView() {
       // Apply filter if exists for this layer
       let filter = null;
       if (filterDefinitions[layer.id]) {
+        console.log("[LAYER] Applying filter to layer:", layer.id);
         filter = createCQLFilter(filterDefinitions[layer.id]);
       }
 
       // Format the tile URL properly using the tile endpoint and Openresty proxy format
       // Extract the token part from the response
       const tokenParam = tileUrl.includes('token=') ? tileUrl.split('token=')[1] : '';
+      console.log("[LAYER] Token param extracted:", tokenParam ? "Success" : "Failed");
       
       // Format for OpenResty proxy container at port 8088
-
       const finalTileUrl = filter
         ? `${TILE_ENDPOINT_URL}/${layer.id}/{z}/{x}/{y}.pbf?token=${tokenParam}&cql_filter=${encodeURIComponent(filter)}`
         : `${TILE_ENDPOINT_URL}/${layer.id}/{z}/{x}/{y}.pbf?token=${tokenParam}`;
 
+      console.log("[LAYER] Final tile URL pattern created:", finalTileUrl ? "Success" : "Failed");
+
       // Add source with error handling
       try {
+        console.log("[LAYER] Adding source to map:", sourceId);
         map.addSource(sourceId, {
           type: 'vector',
           tiles: [finalTileUrl],
           minzoom: 0,
           maxzoom: 22
         });
+        console.log("[LAYER] Source added successfully:", sourceId);
       } catch (sourceError) {
         // If adding the source fails, try with alternative URL format
-        console.warn("Failed to add source with primary URL format, trying alternative:", sourceError.message);
+        console.warn("[LAYER] Failed to add source with primary URL format, trying alternative:", sourceError.message);
         
         try {
           // Try alternative format with dot notation instead of slash
           const alternativeLayerId = formattedLayerId.replace(/\//g, '.');
           const alternativeUrl = `${TILE_ENDPOINT_URL}/${alternativeLayerId}/{z}/{x}/{y}.pbf?token=${tokenParam}`;
+          console.log("[LAYER] Trying alternative URL format:", alternativeUrl ? "Created" : "Failed");
           
           map.addSource(sourceId, {
             type: 'vector',
@@ -535,12 +565,15 @@ export default function MapView() {
             minzoom: 0,
             maxzoom: 22
           });
+          console.log("[LAYER] Alternative source added successfully");
         } catch (altError) {
+          console.error("[LAYER] Both source formats failed:", altError.message);
           throw new Error(`Failed to add source with either URL format: ${altError.message}`);
         }
       }
 
       // Add layer
+      console.log("[LAYER] Adding layer to map:", layerId, "type:", layerType);
       map.addLayer({
         id: layerId,
         type: layerType,
@@ -548,8 +581,10 @@ export default function MapView() {
         'source-layer': layer.id,
         paint: paint
       });
+      console.log("[LAYER] Layer added successfully:", layerId);
 
       // Add click event handler
+      console.log("[LAYER] Adding click handler to layer:", layerId);
       map.on('click', layerId, handleFeatureClick);
 
       // Add hover effect
@@ -562,11 +597,14 @@ export default function MapView() {
       });
 
       // Update state
+      console.log("[LAYER] Updating state with new active layer:", layer.id);
       setActiveLayers(prev => [...prev, layer]);
       setLayerOrder(prev => [...prev, layer.id]);
       setSelectedLayer(layer);
+      console.log("[LAYER] Layer loading complete:", layer.id);
 
     } catch (err) {
+      console.error("[LAYER] Failed to load layer:", layer.id, "Error:", err.message);
       setError(`Failed to load layer ${layer.id || 'unknown'}: ${err.message}`);
     } finally {
       setIsLoading(false);
@@ -575,21 +613,36 @@ export default function MapView() {
 
   // Handle clicking on a feature
   const handleFeatureClick = useCallback((e) => {
-    if (!mapRef.current || !infoModeActive) return;
+    console.log("[FEATURE CLICK] Event received", e);
+    
+    if (!mapRef.current || !infoModeActive) {
+      console.log("[FEATURE CLICK] Skipping - map ref missing or info mode inactive");
+      return;
+    }
 
     const feature = e.features && e.features[0];
-    if (!feature) return;
+    if (!feature) {
+      console.log("[FEATURE CLICK] No feature found in click event");
+      return;
+    }
 
+    console.log("[FEATURE CLICK] Feature found:", feature.id);
+    
     // Extract khata numbers if available
     const properties = feature.properties;
+    console.log("[FEATURE CLICK] Feature properties:", properties);
+    
     const khataNo = properties.khata_no;
+    console.log("[FEATURE CLICK] Khata number:", khataNo);
 
     let parsedKhataNos = [];
     if (khataNo) {
       parsedKhataNos = khataNo.split(',').map(k => k.trim());
+      console.log("[FEATURE CLICK] Parsed khata numbers:", parsedKhataNos);
     }
 
     // Update state
+    console.log("[FEATURE CLICK] Setting selected feature and updating UI");
     setSelectedFeature(properties);
     setKhataNos(parsedKhataNos);
     setSidebarMode('feature');
@@ -597,6 +650,7 @@ export default function MapView() {
 
     // Fly to feature
     const coordinates = e.lngLat;
+    console.log("[FEATURE CLICK] Flying to coordinates:", coordinates);
     mapRef.current.flyTo({
       center: [coordinates.lng, coordinates.lat],
       zoom: Math.max(mapRef.current.getZoom(), 15),
@@ -606,7 +660,9 @@ export default function MapView() {
 
   // Load feature info for all layers at a point
   const handleFeatureInfoRequest = useCallback(async (e) => {
+    console.log("[INFO MODE] Handling feature info request");
     if (!mapRef.current || !token || activeLayers.length === 0) {
+      console.log("[INFO MODE] Skipping feature info request");
       if (!token) handleUnauthorizedAccess();
       return;
     }
@@ -671,15 +727,19 @@ export default function MapView() {
 
   // Toggle info mode
   const toggleInfoMode = useCallback(() => {
-    setInfoModeActive(prev => !prev);
-
+    const newState = !infoModeActive;
+    console.log("[INFO MODE]", newState);
+    setInfoModeActive(newState);
     // Update cursor
     if (mapRef.current) {
-      mapRef.current.getCanvas().style.cursor = !infoModeActive ? 'help' : '';
+      mapRef.current.getCanvas().style.cursor = newState ? 'help' : '';
+      console.log(`[INFO MODE] Cursor updated to: ${newState ? 'help' : 'default'}`);
+    } else {
+      console.warn('[INFO MODE] mapRef.current is null when toggling info mode');
     }
-
     // Turn off other tools
     if (!infoModeActive) {
+      console.log("[INFO MODE] Turning off other tools");
       setMeasurementActive(false);
       setHeatmapActive(false);
     }
@@ -877,7 +937,12 @@ export default function MapView() {
 
   // Handle report download
   const handleReportDownload = useCallback(async (khataNo, district, taluka, village) => {
+    console.log("[REPORT] Starting report download request with params:", {
+      khataNo, district, taluka, village
+    });
+    
     if (!khataNo || !district) {
+      console.error("[REPORT] Missing required parameters for report download");
       setError('Missing required information for report download');
       return;
     }
@@ -886,6 +951,7 @@ export default function MapView() {
       setIsLoading(true);
 
       if (!token) {
+        console.error("[REPORT] No auth token available");
         handleUnauthorizedAccess();
         return;
       }
@@ -899,27 +965,40 @@ export default function MapView() {
       });
 
       const url = `${API_BASE_URL}/report-gen/?${params}`;
+      console.log("[REPORT] Sending API request to:", url);
+      
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
 
+      console.log("[REPORT] Response status:", response.status);
+      
       if (!response.ok) {
         throw new Error(`Failed to generate report. Status: ${response.status}`);
       }
 
+      console.log("[REPORT] Report generation successful, processing download");
+      
       // Convert response to blob and download
       const blob = await response.blob();
+      console.log("[REPORT] Blob received, size:", blob.size);
+      
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = `Report_${khataNo}.pdf`;
       document.body.appendChild(link);
+      
+      console.log("[REPORT] Triggering download");
       link.click();
+      
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
+      console.log("[REPORT] Download complete");
     } catch (err) {
+      console.error("[REPORT] Download failed:", err.message);
       setError(`Download failed: ${err.message}`);
     } finally {
       setIsLoading(false);
@@ -962,14 +1041,23 @@ export default function MapView() {
 
   // Initialize measurement tool
   const initMeasurement = useCallback((type) => {
+    console.log("[MEASUREMENT] Initializing measurement tool with type:", type);
+    console.log("[MEASUREMENT] Current map ref:", mapRef.current);
     if (!mapRef.current) return;
 
+    console.log("[MEASUREMENT] Setting measurement type and activating tool. State - active: ${measurementActive}, type: ${type}");
     setMeasurementType(type);
     setMeasurementActive(true);
     setInfoModeActive(false);
     setHeatmapActive(false);
 
+
+    if (mapRef.current && mapRef.current.getCanvas()) {
+      mapRef.current.getCanvas().style.cursor = 'crosshair';
+    }
+
     // Clear previous measurements
+    console.log("[MEASUREMENT] Clearing previous measurements");
     clearMeasurement();
 
     // Initialize measurement layer
@@ -1280,7 +1368,12 @@ export default function MapView() {
 
   // Generate and download map export
   const generateMapExport = useCallback(async (options) => {
-    if (!mapRef.current) return;
+    console.log("[EXPORT] Starting map export with options:", options);
+    
+    if (!mapRef.current) {
+      console.error("[EXPORT] Map reference not available");
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -1288,19 +1381,25 @@ export default function MapView() {
       const map = mapRef.current;
 
       // Generate a screenshot of the map
+      console.log("[EXPORT] Generating map screenshot");
       const canvas = map.getCanvas();
       const mapImage = canvas.toDataURL('image/png');
+      console.log("[EXPORT] Screenshot generated");
 
       // Generate PDF report
       try {
         // Dynamic import jsPDF
+        console.log("[EXPORT] Importing jsPDF");
         const jspdfModule = await import('jspdf');
         const jsPDF = jspdfModule.default;
+        console.log("[EXPORT] jsPDF imported successfully");
 
         const pdf = new jsPDF('landscape', 'mm', 'a4');
+        console.log("[EXPORT] PDF document created");
 
         // Add title if requested
         if (options.includeTitle && options.title) {
+          console.log("[EXPORT] Adding title:", options.title);
           pdf.setFontSize(18);
           pdf.text(options.title, 20, 20);
           pdf.setFontSize(12);
@@ -1308,11 +1407,13 @@ export default function MapView() {
 
         // Add map image if requested
         if (options.includeMap) {
+          console.log("[EXPORT] Adding map image to PDF");
           pdf.addImage(mapImage, 'PNG', 20, options.includeTitle ? 30 : 20, 250, 150);
         }
 
         // Add attributes if requested
         if (options.includeAttributes && selectedFeature) {
+          console.log("[EXPORT] Adding feature attributes to PDF");
           const attributesY = options.includeMap ? (options.includeTitle ? 190 : 180) : (options.includeTitle ? 30 : 20);
 
           pdf.setFontSize(14);
@@ -1323,6 +1424,7 @@ export default function MapView() {
             .filter(([key]) => !['geometry', 'bbox', 'id'].includes(key.toLowerCase()))
             .map(([key, value]) => `${key}: ${value !== null ? value : 'N/A'}`);
 
+          console.log("[EXPORT] Adding", attributes.length, "attributes to PDF");
           attributes.forEach((attr, index) => {
             if (index < 40) { // Limit to prevent overflow
               pdf.text(attr, 20, attributesY + 10 + (index * 5));
@@ -1331,17 +1433,24 @@ export default function MapView() {
         }
 
         // Save the PDF
-        pdf.save(options.title ? `${options.title}.pdf` : 'map_export.pdf');
+        const fileName = options.title ? `${options.title}.pdf` : 'map_export.pdf';
+        console.log("[EXPORT] Saving PDF as:", fileName);
+        pdf.save(fileName);
+        console.log("[EXPORT] PDF saved successfully");
       } catch (pdfErr) {
         // Fallback - just download the map image if PDF generation fails
+        console.error("[EXPORT] PDF generation failed, falling back to image download:", pdfErr);
         const link = document.createElement('a');
         link.href = mapImage;
         link.download = options.title ? `${options.title}.png` : 'map_export.png';
         document.body.appendChild(link);
+        console.log("[EXPORT] Triggering image download");
         link.click();
         document.body.removeChild(link);
+        console.log("[EXPORT] Image download complete");
       }
     } catch (err) {
+      console.error("[EXPORT] Export failed:", err.message);
       setError(`Export failed: ${err.message}`);
     } finally {
       setIsLoading(false);
@@ -1350,17 +1459,23 @@ export default function MapView() {
 
   // Zoom to layer extent
   const zoomToLayerExtent = useCallback(async (layerId) => {
+    console.log("[ZOOM] Attempting to zoom to layer extent:", layerId);
+    
     if (!mapRef.current || !token) {
+      console.error("[ZOOM] Cannot zoom - map or token missing");
       if (!token) handleUnauthorizedAccess();
       return;
     }
 
     try {
       setIsLoading(true);
+      console.log("[ZOOM] Fetching layer extent from API");
 
       const extent = await fetchLayerExtent(API_BASE_URL, layerId, token);
+      console.log("[ZOOM] Layer extent received:", extent);
 
       if (!extent) {
+        console.error("[ZOOM] No extent data received from API");
         throw new Error('Failed to fetch layer extent');
       }
 
@@ -1369,14 +1484,18 @@ export default function MapView() {
         [extent[0], extent[1]], // Southwest
         [extent[2], extent[3]]  // Northeast
       ];
+      console.log("[ZOOM] Calculated bounds:", bounds);
 
       // Fit map to bounds
+      console.log("[ZOOM] Fitting map to bounds");
       mapRef.current.fitBounds(bounds, {
         padding: 20,
         maxZoom: 16
       });
+      console.log("[ZOOM] Map view updated to layer extent");
 
     } catch (err) {
+      console.error("[ZOOM] Failed to zoom to layer:", err.message);
       setError(`Failed to zoom to layer: ${err.message}`);
     } finally {
       setIsLoading(false);
@@ -1593,8 +1712,7 @@ export default function MapView() {
                 <button 
                   className="done-btn" 
                   onClick={() => setLayerPopupOpen(false)}
-                >
-                  Done
+                >Done
                 </button>
               </div>
             </div>
