@@ -147,7 +147,6 @@ class ReportTransaction(models.Model):
     taluka = models.CharField(max_length=100, null=True, blank=True)
     district = models.CharField(max_length=100, null=True, blank=True)
 
-
     def save(self, *args, **kwargs):
         """
         Override the save method to enforce transaction limits based on the user's plan.

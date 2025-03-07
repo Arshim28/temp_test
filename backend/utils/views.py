@@ -1,8 +1,10 @@
+from email.policy import HTTP
 import jwt
 
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction, IntegrityError
+from django.views.decorators.http import require_http_methods
 
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -27,6 +29,7 @@ from .models import (
 )
 from .helpers import get_metadata_state, has_plan_access, get_report_access_plan
 from land_value.data_manager.all_manager.mh_all_manager import mh_all_manager
+import urllib.parse
 
 # pyright: reportAttributeAccessIssue=false
 
@@ -40,9 +43,14 @@ except Exception as e:
     print(e)
 
 
+@require_http_methods(["HEAD", "GET"])
+def health_check(request):
+    return HttpResponse(status=200)
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def create_plan(request):
+def create_plan(request):  # API not used.
     user = request.user
     request.data["user"] = user.id
     serializer = PlanSerializer(data=request.data)
@@ -81,7 +89,7 @@ def create_plan(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def create_report_plan(request):
+def create_report_plan(request):  # API not used.
     user = request.user
     request.data["user"] = user.id
     quantity = request.data.get(
@@ -229,36 +237,20 @@ def maharashtra_hierarchy(request):
 def report_gen(request):
     """Generates a PDF report for a single entity based on query parameters."""
 
-    required_params = ["state", "district", "taluka", "village", "khata_no"]
-    query_params = {param: request.query_params.get(param) for param in required_params}
+    # required_params = ["state", "district", "taluka", "village", "khata_no"]
+    # query_params = {param: request.query_params.get(param) for param in required_params}
 
-    missing_params = [param for param, value in query_params.items() if not value]
-    if missing_params:
+    plot_id = request.query_params.get("plot_id")
+
+    # missing_params = [param for param, value in query_params.items() if not value]
+    if not plot_id:
         return Response(
-            {"detail": f"Missing query parameters: {', '.join(missing_params)}"},
+            {"detail": f"Missing query parameters: plot_id"},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-    try:
-        print("Pass")  # Ensure khata_no is an integer
-    except ValueError:
-        return Response(
-            {"detail": "khata_no must be a valid integer"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    string_params = ["state", "district", "taluka", "village"]
-    query_params.update(
-        {
-            key: value.lower()
-            for key, value in query_params.items()
-            if key in string_params
-        }
-    )
-    query_params.pop("state")
 
     all_manager_obj = mh_all_manager()
-    pdf = all_manager_obj.get_plot_pdf_by_khata(**query_params)
+    pdf = all_manager_obj.get_plot_pdf_by_plot_id(plot_id)
 
     if not pdf:
         return Response(
@@ -266,7 +258,7 @@ def report_gen(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    filename = f"{query_params['village']}_{query_params['khata_no']}_plot.pdf"
+    filename = f"{plot_id}_plot.pdf"
     response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
 
@@ -282,27 +274,31 @@ def report_gen3(request):
     params = {
         key: request.query_params.get(key, "").strip().lower()
         for key in ["state", "district", "taluka", "village"]
-    }
+    }  # NOTE: Required to save the transaction.
+
     khata_no = request.query_params.get("khata_no")
+    plot_id = request.query_params.get("plot_id")
 
     if not khata_no or any(not v for v in params.values()):
         return Response(
             {"detail": "Invalid query parameters"}, status=status.HTTP_400_BAD_REQUEST
         )
 
-
+    if not plot_id:
+        return Response(
+            {"detail": "Invalid query parameters"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
     plan = get_report_access_plan(user)
 
     if not plan:
         return Response(
-            {"detail": "User does not have access to any plan"}, status=status.HTTP_403_FORBIDDEN
+            {"detail": "User does not have access to any plan"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
-    params.pop("state")
-
     all_manager_obj = mh_all_manager()
-    pdf = all_manager_obj.get_plot_pdf_by_khata(**params, khata_no=khata_no)
+    pdf = all_manager_obj.get_plot_pdf_by_plot_id(plot_id)
 
     if not pdf:
         return Response(
@@ -314,26 +310,34 @@ def report_gen3(request):
             taluka = params.get("taluka")
             district = params.get("district")
 
-            ReportTransaction.objects.create(report_plan=plan, khata_no=khata_no, village=village, taluka=taluka, district=district)
+            ReportTransaction.objects.create(
+                report_plan=plan,
+                khata_no=khata_no,
+                village=village,
+                taluka=taluka,
+                district=district,
+            )
 
             response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
-            response["Content-Disposition"] = f'attachment; filename="{khata_no}_plot.pdf"'
+            response["Content-Disposition"] = (
+                f'attachment; filename="{khata_no}_plot.pdf"'
+            )
             return response
 
     except IntegrityError:
         return Response(
-            {"error": "Failed to create report transaction"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": "Failed to create report transaction"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     except Exception as e:
-        print(f"[INFO]: An unexpected error occurred: {str(e)}")
+        print(f"[ERROR]: An unexpected error occurred: {str(e)}")
         return Response(
-            {"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"error": f"An unexpected error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     response = HttpResponse(pdf.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename=\"{khata_no}_plot.pdf\"'
+    response["Content-Disposition"] = f'attachment; filename="{khata_no}_plot.pdf"'
     return response
-
-
 
 
 @api_view(["GET"])
@@ -361,7 +365,7 @@ def get_tile_url(request):
         token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
         tile_url = (
-            f"http://65.2.140.129:8088/{l_id}/{{z}}/{{x}}/{{y}}.pbf?token={token}"
+            f"http://43.204.226.30:8088/{l_id}/{{z}}/{{x}}/{{y}}.pbf?token={token}"
         )
 
         print(tile_url)
@@ -384,21 +388,26 @@ def get_plot_by_lat_lng(request):
     coordinates = {"lng": float(lng), "lat": float(lat)}
     cad_manager = mh_all_manager().cadastral_manager
     entries = cad_manager.get_plot_by_lat_lng(coordinates, limit=10)
-    print(entries)
     if not entries:
         return Response(
-            {"error": "No plots found for the given coordinates"},
+            [],
             status=status.HTTP_404_NOT_FOUND,
         )
+    print("[INFO]: lat-long sample entry: ", entries[0])
+
     details = []
-    for khata in entries:
+
+    for entry in entries:
         details.append(
             {
-                "khata_no": khata,
-                "village_name": entries[khata]["village"],
-                "owner_names": entries[khata]["owner_names"],
-                "district": entries[khata]["district"],
-                "taluka": entries[khata]["taluka"],
+                "khata_no": entry["khata_no"],
+                "plot_id": entry["plot_id"],
+                "gat_no": entry["gat_no"],
+                "survey_no": entry["survey_no"],
+                "owner_names": entry["owner_name_english"],
+                "district": entry["district"],
+                "taluka": entry["taluka"],
+                "village_name": entry["village_name"],
             }
         )
 
@@ -406,7 +415,7 @@ def get_plot_by_lat_lng(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])
 def get_khata_preview(request):
     """Get Khata Preview accepts district, taluka, village"""
     state = "maharashtra"
@@ -421,24 +430,129 @@ def get_khata_preview(request):
         )
 
     mh_all_manager_obj = mh_all_manager()
-    entries = mh_all_manager_obj.get_khata_preview_from_village(
-        district, taluka, village
-    )
+    entries = mh_all_manager_obj.get_preview_from_village(district, taluka, village)
 
+    print("[INFO]: Khata Preview, preview-sample-data: ", entries[0])
     details = []
-    for khata in entries:
+    for entry in entries:
         details.append(
             {
-                "khata_no": khata,
-                "village_name": entries[khata]["village"],
-                "owner_names": entries[khata]["owner_names"],
-                "district": entries[khata]["district"],
-                "taluka": entries[khata]["taluka"],
+                "khata_no": entry["khata_no"],
+                "village_name": village,
+                "owner_names": entry["owner_name_english"],
+                "district": district,
+                "taluka": taluka,
+                "plot_id": entry["plot_id"],
+                "gat_no": entry["gat_no"],
+                "survey_no": entry["survey_no"],
             }
         )
 
     print("[INFO]: Khata Preview, preview-entries count: ", len(details))
     return Response(details, status=status.HTTP_200_OK)
+
+
+# @api_view(["GET"])
+# # @permission_classes([IsAuthenticated])
+# def report_info_from_khata(request):
+#     khata_no = request.query_params.get("khata_no")
+#     # state = request.query_params.get("state")
+#     village = request.query_params.get("village")
+#     district = request.query_params.get("district")
+#     taluka = request.query_params.get("taluka")
+
+#     if not all([khata_no, village, district, taluka]):
+#         return Response(
+#             {"error": "Missing required parameters"},
+#             status=status.HTTP_400_BAD_REQUEST,
+#         )
+#     all_manager_obj = mh_all_manager()
+#     entries = all_manager_obj.get_info_from_khata(
+#         district=district, village=village, taluka=taluka, khata_no=khata_no
+#     )
+
+#     print("[INFO]: Reports from khata, sample entry: ", entries[0])
+
+#     details = []
+#     for entry in entries:
+#         details.append(
+#             {
+#                 "khata_no": khata_no,
+#                 "village_name": village,
+#                 "owner_names": entry["owner_name_english"],
+#                 "district": district,
+#                 "taluka": taluka,
+#                 "plot_id": entry["plot_id"],
+#                 "gat_no": entry["gat_no"],
+#                 "survey_no": entry["survey_no"],
+#             }
+#         )
+
+#     print("[INFO]: Reports from khata: entries count: ", len(details))
+#     return Response(details, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+# @permission_classes([IsAuthenticated])
+def report_info_from_khata(request):
+    number = request.query_params.get("number")
+    number_type = request.query_params.get("type")
+    village = request.query_params.get("village")
+    district = request.query_params.get("district")
+    taluka = request.query_params.get("taluka")
+
+    if not all([number, number_type, village, district, taluka]):
+        return Response(
+            {"error": "Missing required parameters"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    all_manager_obj = mh_all_manager()
+    if number_type == "khata":
+        entries = all_manager_obj.get_info_from_khata(
+            district=district, village=village, taluka=taluka, khata_no=number
+        )
+    elif number_type == "gat":
+        entries = all_manager_obj.get_info_from_gat(
+            district=district, village=village, taluka=taluka, gat_no=number
+        )
+    elif number_type == "survey":
+        entries = all_manager_obj.get_info_from_survey(
+            district=district, village=village, taluka=taluka, survey_no=number
+        )
+    else:
+        return Response(
+            {"error": "Invalid number type"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not entries:
+        return Response(
+            {"error": "No entries found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    print(f"[INFO]: Reports from {number_type}, sample entry: ", entries[0])
+
+    details = []
+    for entry in entries:
+        details.append(
+            {
+                "number": number,
+                "number_type": number_type,
+                "village_name": village,
+                "owner_names": entry["owner_name_english"],
+                "district": district,
+                "taluka": taluka,
+                "plot_id": entry["plot_id"],
+                "gat_no": entry["gat_no"],
+                "survey_no": entry["survey_no"],
+            }
+        )
+
+    print(f"[INFO]: Reports from {number_type}: entries count: ", len(details))
+    return Response(details, status=status.HTTP_200_OK)
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -451,4 +565,64 @@ def get_available_reports(request):
     for plan in plans:
         quantity += plan.quantity
         reports_downloaded += plan.total_transactions
-    return Response({"quantity": quantity, "used": reports_downloaded}, status=status.HTTP_200_OK)
+    return Response(
+        {"quantity": quantity, "used": reports_downloaded}, status=status.HTTP_200_OK
+    )
+
+
+@api_view(["GET"])
+# @permission_classes([IsAuthenticated])
+def search_report_by_gat(request):
+    """Returns the reports by gat no"""
+    gat_no = request.query_params.get("gat_no")
+    district = request.query_params.get("district")
+    taluka = request.query_params.get("taluka")
+    village = request.query_params.get("village")
+
+    if not all([gat_no, district, taluka, village]):
+        return Response(
+            {"error": "Missing required parameters"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    amo = mh_all_manager()
+    entries = amo.get_info_from_gat(district, taluka, village, gat_no)
+
+    print(entries)
+
+    return Response(entries, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+# @permission_classes([IsAuthenticated])
+def search_report_by_survey(request):
+    """Returns the reports by survey no"""
+
+    district = request.query_params.get("district")
+    taluka = request.query_params.get("taluka")
+    village = request.query_params.get("village")
+    survey_no = request.query_params.get("survey_no")
+
+    if not all([district, taluka, village, survey_no]):
+        return Response(
+            {"error": "Missing required parameters"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    amo = mh_all_manager()
+    entries = amo.get_info_from_survey(district, taluka, village, survey_no)
+    data = []
+
+    for entry in entries:
+        data.append(
+            {
+                "khata_no": entry["khata_no"],
+                "plot_id": entry["plot_id"],
+                "gat_no": entry["gat_no"],
+                "survey_no": entry["survey_no"],
+                "owner_names": entry["owner_name_english"],
+                "district": district,
+                "taluka": taluka,
+                "village": village,
+            }
+        )
+
+    return Response(data, status=status.HTTP_200_OK)

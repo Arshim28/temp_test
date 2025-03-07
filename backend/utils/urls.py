@@ -18,6 +18,10 @@ from .views import (
     get_plot_by_lat_lng,
     get_khata_preview,
     get_available_reports,
+    report_info_from_khata,
+    search_report_by_survey,
+    search_report_by_gat,
+    health_check,
     # get_access_token
 )
 
@@ -51,6 +55,10 @@ urlpatterns = [
     path("khata-numbers/", KhataNumbersView.as_view(), name="khata_numbers"),
     path("plot/", get_plot_by_lat_lng, name="get_plot_by_lat_lng"),
     path("get_tile_url/", get_tile_url, name="proxy_access_token"),
-    path("khata-preview/", get_khata_preview, name="khata_preview"),
-    path("reports-info/", get_available_reports, name="get_available_reports")
+    path("khata-preview/", get_khata_preview, name="khata_preview"),  # get plot id
+    path("reports-info/", get_available_reports, name="get_available_reports"),
+    path("reports/search/gat/", search_report_by_gat, name="search_report_by_gat"),
+    path("reports/search/survey/", search_report_by_survey, name="search_reports"),
+    path("khata/report-info/", report_info_from_khata, name="report-info-from-khata"),
+    path("health-check/", health_check, name="health-check"),
 ]
