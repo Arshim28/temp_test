@@ -116,9 +116,9 @@ class KhataNumbersView(View):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        district = request.GET.get("district")
-        taluka_name = request.GET.get("taluka_name")
-        village_name = request.GET.get("village_name")
+        district = urllib.parse.unquote(request.GET.get("district", ""))
+        taluka_name = urllib.parse.unquote(request.GET.get("taluka_name", ""))
+        village_name = urllib.parse.unquote(request.GET.get("village_name", ""))
 
         if not all([district, taluka_name, village_name]):
             return JsonResponse(
@@ -419,9 +419,11 @@ def get_plot_by_lat_lng(request):
 def get_khata_preview(request):
     """Get Khata Preview accepts district, taluka, village"""
     state = "maharashtra"
-    district = request.query_params.get("district")
-    taluka = request.query_params.get("taluka")
-    village = request.query_params.get("village")
+    district = urllib.parse.unquote(request.query_params.get("district", ""))
+    taluka = urllib.parse.unquote(request.query_params.get("taluka", ""))
+    village = urllib.parse.unquote(request.query_params.get("village", ""))
+    print("[INFO]: Khata Preview, preview-params: ", state, district, taluka, village)
+
 
     if not all([state, district, taluka, village]):
         return Response(
@@ -494,12 +496,13 @@ def get_khata_preview(request):
 
 @api_view(["GET"])
 # @permission_classes([IsAuthenticated])
+@api_view(["GET"])
 def report_info_from_khata(request):
-    number = request.query_params.get("number")
-    number_type = request.query_params.get("type")
-    village = request.query_params.get("village")
-    district = request.query_params.get("district")
-    taluka = request.query_params.get("taluka")
+    number = urllib.parse.unquote(request.query_params.get("number", ""))
+    number_type = urllib.parse.unquote(request.query_params.get("type", ""))
+    village = urllib.parse.unquote(request.query_params.get("village", ""))
+    district = urllib.parse.unquote(request.query_params.get("district", ""))
+    taluka = urllib.parse.unquote(request.query_params.get("taluka", ""))
 
     if not all([number, number_type, village, district, taluka]):
         return Response(
@@ -536,19 +539,17 @@ def report_info_from_khata(request):
 
     details = []
     for entry in entries:
-        details.append(
-            {
-                "number": number,
-                "number_type": number_type,
-                "village_name": village,
-                "owner_names": entry["owner_name_english"],
-                "district": district,
-                "taluka": taluka,
-                "plot_id": entry["plot_id"],
-                "gat_no": entry["gat_no"],
-                "survey_no": entry["survey_no"],
-            }
-        )
+        details.append({
+            # Make sure fields match exactly what frontend expects
+            "khata_no": entry["khata_no"],
+            "village_name": village,
+            "owner_names": entry["owner_name_english"],  # Note this is now owner_names
+            "district": district,
+            "taluka": taluka,
+            "plot_id": entry["plot_id"],
+            "gat_no": entry["gat_no"],
+            "survey_no": entry["survey_no"]
+        })
 
     print(f"[INFO]: Reports from {number_type}: entries count: ", len(details))
     return Response(details, status=status.HTTP_200_OK)
@@ -574,10 +575,10 @@ def get_available_reports(request):
 # @permission_classes([IsAuthenticated])
 def search_report_by_gat(request):
     """Returns the reports by gat no"""
-    gat_no = request.query_params.get("gat_no")
-    district = request.query_params.get("district")
-    taluka = request.query_params.get("taluka")
-    village = request.query_params.get("village")
+    gat_no = urllib.parse.unquote(request.query_params.get("gat_no", ""))
+    district = urllib.parse.unquote(request.query_params.get("district", ""))
+    taluka = urllib.parse.unquote(request.query_params.get("taluka", ""))
+    village = urllib.parse.unquote(request.query_params.get("village", ""))
 
     if not all([gat_no, district, taluka, village]):
         return Response(
@@ -597,10 +598,11 @@ def search_report_by_gat(request):
 def search_report_by_survey(request):
     """Returns the reports by survey no"""
 
-    district = request.query_params.get("district")
-    taluka = request.query_params.get("taluka")
-    village = request.query_params.get("village")
-    survey_no = request.query_params.get("survey_no")
+    district = urllib.parse.unquote(request.query_params.get("district", ""))
+    taluka = urllib.parse.unquote(request.query_params.get("taluka", ""))
+    village = urllib.parse.unquote(request.query_params.get("village", ""))
+    survey_no = urllib.parse.unquote(request.query_params.get("survey_no", ""))
+
 
     if not all([district, taluka, village, survey_no]):
         return Response(
