@@ -283,28 +283,33 @@ export default function ReportPage() {
             alert("Please enter a valid Khata.");
             return;
         }
-
+    
         try {
             setIsLoading(true);
-            const response = await axios.get(`${BASE_URL}/khata/report-info`, {
-                params: {
-                    state: "maharashtra",
-                    district: district.toLowerCase(),
-                    taluka: taluka.toLowerCase(),
-                    village: village.toLowerCase(),
-                    khata_no: khata_no.trim(),
-                },
-                responseType: "blob", // Expecting binary data
+            // Use the existing khata-preview endpoint instead
+            const params = new URLSearchParams({
+                district: district.toLowerCase(),
+                taluka: taluka.toLowerCase(),
+                village: village.toLowerCase()
+            });
+    
+            const response = await fetch(`${BASE_URL}/khata-preview/?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-
-            // Convert blob data to text or JSON if needed
-            const blob = response.data;
-            const textData = await blob.text();
-            const data = JSON.parse(textData);
-
-            console.log("Khata Preview Response:", data);
-            setReports(data);
+    
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+    
+            const data = await response.json();
+            
+            // Filter the results to get only the selected khata
+            const filteredData = data.filter(item => 
+                item.khata_no.toString() === khata_no.toString()
+            );
+            
+            console.log("Khata Preview Response:", filteredData);
+            setReports(filteredData);
         } catch (error) {
             console.error("Error in fetching reports by khata:", error);
             alert("Fetching Reports Failed");
@@ -312,33 +317,38 @@ export default function ReportPage() {
             setIsLoading(false);
         }
     };
-
     const fetchReportsByGat = async (gat_no, district, taluka, village) => {
         if (!gat_no || gat_no.trim() === "") {
             alert("Please enter a valid Gat Number.");
             return;
         }
-
+    
         try {
             setIsLoading(true);
-            const response = await axios.get(`${BASE_URL}/reports/search/gat/`, {
-                params: {
-                    district: district.toLowerCase(),
-                    taluka: taluka.toLowerCase(),
-                    village: village.toLowerCase(),
-                    gat_no: gat_no.trim(),
-                },
-                responseType: "blob", // Expecting binary data
+            const params = new URLSearchParams({
+                district: district.toLowerCase(),
+                taluka: taluka.toLowerCase(),
+                village: village.toLowerCase()
+            });
+    
+            const response = await fetch(`${BASE_URL}/khata-preview/?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-
-            // Convert blob data to text or JSON if needed
-            const blob = response.data;
-            const textData = await blob.text();
-            const data = JSON.parse(textData);
-
-            console.log("Gat Preview Response:", data);
-            setReports(data);
+    
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+    
+            const data = await response.json();
+            
+            // Filter the results to get only khatas with matching gat_no
+            // Note: You'll need to adjust this filter if gat_no is stored differently
+            const filteredData = data.filter(item => 
+                item.gat_no && item.gat_no.toString() === gat_no.toString()
+            );
+            
+            console.log("Gat Preview Response:", filteredData);
+            setReports(filteredData);
         } catch (error) {
             console.error("Error in fetching reports by gat:", error);
             alert("Fetching Reports Failed");
@@ -346,49 +356,47 @@ export default function ReportPage() {
             setIsLoading(false);
         }
     };
+const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
+    if (!survey_no || survey_no.trim() === "") {
+        alert("Please enter a valid Survey Number.");
+        return;
+    }
 
-    const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
-        if (!survey_no || survey_no.trim() === "") {
-            alert("Please enter a valid Survey Number.");
-            return;
+    try {
+        setIsLoading(true);
+        const params = new URLSearchParams({
+            district: district.toLowerCase(),
+            taluka: taluka.toLowerCase(),
+            village: village.toLowerCase()
+        });
+
+        const response = await fetch(`${BASE_URL}/khata-preview/?${params}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        try {
-            setIsLoading(true);
-            const response = await axios.get(`${BASE_URL}/reports/search/survey/`, {
-                params: {
-                    district: district.toLowerCase(),
-                    taluka: taluka.toLowerCase(),
-                    village: village.toLowerCase(),
-                    survey_no: survey_no.trim(),
-                },
-                responseType: "blob", // Expecting binary data
-                headers: { Authorization: `Bearer ${token}` },
-            });
+        const data = await response.json();
+        
+        // Filter the results to get only khatas with matching survey_no
+        // Note: You'll need to adjust this filter if survey_no is stored differently
+        const filteredData = data.filter(item => 
+            item.survey_no && item.survey_no.toString() === survey_no.toString()
+        );
+        
+        console.log("Survey Preview Response:", filteredData);
+        setReports(filteredData);
+    } catch (error) {
+        console.error("Error in fetching reports by survey:", error);
+        alert("Fetching Reports Failed");
+    } finally {
+        setIsLoading(false);
+    }
+};
 
-            // Convert blob data to text or JSON if needed
-            const blob = response.data;
-            const textData = await blob.text();
-            const data = JSON.parse(textData);
-
-            console.log("Survey Preview Response:", data);
-            setReports(data);
-        } catch (error) {
-            console.error("Error in fetching reports by survey:", error);
-            alert("Fetching Reports Failed");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-
-    const downloadReportPDF = async (
-        khata_no,
-        district,
-        taluka,
-        village,
-        poltID,
-    ) => {
+    const downloadReportPDF = async (khata_no, district, taluka, village, poltID) => {
         if (!khata_no) {
             alert("Please enter a valid Khata.");
             return;
@@ -397,23 +405,22 @@ export default function ReportPage() {
             const response = await axios.get(`${BASE_URL}/report-gen/`, {
                 params: {
                     state: "maharashtra",
-                    district: district.toLowerCase(),
-                    taluka: taluka.toLowerCase(),
-                    village: village.toLowerCase(),
+                    district: district ? district.toLowerCase() : "",
+                    taluka: taluka ? taluka.toLowerCase() : "",
+                    village: village ? village.toLowerCase() : "",
                     khata_no: khata_no,
                     plot_id: poltID,
                 },
                 responseType: "blob",
                 headers: { Authorization: `Bearer ${token}` },
             });
-
+    
             saveAs(response.data, `Report_${khata_no}.pdf`);
         } catch (error) {
             console.error("Error downloading report:", error);
             alert("Download failed.");
         }
     };
-
     const downloadReportBySurveyNumber = async () => {
         if (!filters.khataNumber) {
             alert("Please enter a valid survey number.");
