@@ -142,8 +142,49 @@ class KhataNumbersView(APIView):
                     )
                 ]
             )
-            print(len(khata_numbers))
-            return JsonResponse({"khata_numbers": khata_numbers})
+            
+            # Get gat numbers using the function from mh_all_manager
+            gat_numbers = []
+            try:
+                gat_numbers = sorted(
+                    [
+                        str(i)
+                        for i in list(
+                            set(
+                                all_manager_obj.get_gat_from_village(
+                                    district, taluka_name, village_name
+                                )
+                            )
+                        )
+                    ]
+                )
+            except Exception as e:
+                print(f"Error fetching gat numbers: {e}")
+            
+            # Get survey numbers using the function from mh_all_manager
+            survey_numbers = []
+            try:
+                survey_numbers = sorted(
+                    [
+                        str(i)
+                        for i in list(
+                            set(
+                                all_manager_obj.get_survey_from_village(
+                                    district, taluka_name, village_name
+                                )
+                            )
+                        )
+                    ]
+                )
+            except Exception as e:
+                print(f"Error fetching survey numbers: {e}")
+            
+            print(f"Found {len(khata_numbers)} khata numbers, {len(gat_numbers)} gat numbers, {len(survey_numbers)} survey numbers")
+            return JsonResponse({
+                "khata_numbers": khata_numbers,
+                "gat_numbers": gat_numbers,
+                "survey_numbers": survey_numbers
+            })
         except Exception as e:
             return JsonResponse(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -568,6 +609,33 @@ def get_available_reports(request):
     return Response(
         {"quantity": quantity, "used": reports_downloaded}, status=status.HTTP_200_OK
     )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_khata_from_survey_view(request):
+    """Returns khata numbers associated with a specific survey number"""
+    district = urllib.parse.unquote(request.query_params.get("district", ""))
+    taluka = urllib.parse.unquote(request.query_params.get("taluka", ""))
+    village = urllib.parse.unquote(request.query_params.get("village", ""))
+    survey_no = urllib.parse.unquote(request.query_params.get("survey_no", ""))
+
+    if not all([district, taluka, village, survey_no]):
+        return Response(
+            {"error": "Missing required parameters"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        amo = mh_all_manager()
+        khata_numbers = amo.get_khata_from_survey(district, taluka, village, survey_no)
+        return Response({"khata_numbers": khata_numbers}, status=status.HTTP_200_OK)
+    except Exception as e:
+        print(f"Error getting khata from survey: {e}")
+        return Response(
+            {"error": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(["GET"])

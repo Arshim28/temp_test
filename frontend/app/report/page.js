@@ -10,6 +10,75 @@ import axios from "axios";
 import LoadingScreen from "../loader/page";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
+// Reusable SearchBar component with autocomplete
+function SearchBar({ 
+  searchType, 
+  suggestionsData, 
+  onSelectSuggestion, 
+  placeholder 
+}) {
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    
+    // Ensure suggestionsData is an array
+    if (!Array.isArray(suggestionsData) || suggestionsData.length === 0) {
+      console.log(`${searchType} search: No suggestions data available`);
+      setSuggestions([]);
+      return;
+    }
+    
+    console.log(`${searchType} search: Filtering ${suggestionsData.length} suggestions with query "${query}"`);
+    
+    // Filter suggestions based on query (case-insensitive) and take top 5
+    const filtered = suggestionsData.filter(item => {
+      // Convert item to string to prevent TypeError if item is a number
+      const itemStr = String(item);
+      return itemStr.toLowerCase().includes(query.toLowerCase());
+    });
+    
+    console.log(`${searchType} search: Found ${filtered.length} matching suggestions`);
+    setSuggestions(filtered.slice(0, 5));
+  }, [query, suggestionsData, searchType]);
+
+  return (
+    <div className="search-bar" style={{ position: "relative" }}>
+      <input
+        type="text"
+        value={query}
+        placeholder={placeholder}
+        onChange={(e) => setQuery(e.target.value)}
+        className="form-control"
+      />
+      {suggestions.length > 0 && (
+        <ul 
+          className="dropdown-menu show" 
+          style={{ width: "100%", position: "absolute", zIndex: 1000 }}
+        >
+          {suggestions.map((item, index) => (
+            <li
+              key={index}
+              onClick={() => {
+                onSelectSuggestion(item);
+                setQuery(String(item));
+                setSuggestions([]);
+              }}
+              style={{ cursor: "pointer", padding: "5px 10px" }}
+            >
+              {String(item)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function ReportPage() {
     const [filters, setFilters] = useState({
         state: "",
@@ -18,7 +87,11 @@ export default function ReportPage() {
         village: "",
         reportType: "",
         ownerName: "",
-        khata_no: "", // Added survey number
+        khataNumber: "", // For khata search
+        gatNumber: "",   // For gat search
+        surveyNumber: "", // For survey search
+        latitude: "",
+        longitude: ""
     });
 
     const [hierarchy, setHierarchy] = useState([]);
@@ -26,8 +99,8 @@ export default function ReportPage() {
     const [gatNumbers, setGatNumbers] = useState([]);
     const [surveyNumbers, setSurveyNumbers] = useState([]);
     const [reports, setReports] = useState([]);
-
     const [reports1, setReports1] = useState([]);
+    const [searchType, setSearchType] = useState("khata");
     const [loading, setLoading] = useState(true);
     const [showLoginPopup, setShowLoginPopup] = useState(false);
     const [isSearchingLatLong, setIsSearchingLatLong] = useState(false);
@@ -115,6 +188,15 @@ export default function ReportPage() {
             setReports([]); // Reset reports when filters change
         }
     }, [filters.district, filters.taluka, filters.village]);
+    
+    // This effect allows linkage between search types (survey -> khata)
+    useEffect(() => {
+        if (searchType === "survey" && filters.surveyNumber && filters.district && filters.taluka && filters.village) {
+            // When a user selects a survey number, we can optionally fetch the corresponding khata numbers
+            // This creates a link between search types
+            fetchKhataFromSurvey(filters.surveyNumber);
+        }
+    }, [searchType, filters.surveyNumber, filters.district, filters.taluka, filters.village]);
 
     const fetchKhataNumbersAndReports = async () => {
         try {
@@ -135,11 +217,11 @@ export default function ReportPage() {
                     ? res.data.khata_numbers
                     : [],
             );
-            setGatNumbers(
-                Array.isArray(res.data.gat_numbers)
-                    ? res.data.gat_numbers
-                    : [],
-            );
+            // Debug logging for gat numbers
+            console.log("Raw gat numbers from API:", res.data.gat_numbers);
+            const formattedGatNumbers = Array.isArray(res.data.gat_numbers) ? res.data.gat_numbers : [];
+            console.log("Formatted gat numbers:", formattedGatNumbers);
+            setGatNumbers(formattedGatNumbers);
             setSurveyNumbers(
                 Array.isArray(res.data.survey_numbers)
                     ? res.data.survey_numbers
@@ -161,13 +243,44 @@ export default function ReportPage() {
             const data = await resp.json();
             console.log("Khata Preview Response:", data);
             setReports(data); // Set reports from khata preview API
-            // setLoading(false);
-            // Extract gat_no and survey_no from the khata-preview response
-            const gatNumbers = data.map(item => item.gat_no).filter(Boolean);
-            const surveyNumbers = data.map(item => item.survey_no).filter(Boolean);
-
-            setGatNumbers(gatNumbers);
-            setSurveyNumbers(surveyNumbers);
+            
+            // Check if we got gat and survey numbers from the backend
+            const hasGatNumbersFromAPI = Array.isArray(res.data.gat_numbers) && res.data.gat_numbers.length > 0;
+            const hasSurveyNumbersFromAPI = Array.isArray(res.data.survey_numbers) && res.data.survey_numbers.length > 0;
+            
+            console.log("Has gat numbers from API:", hasGatNumbersFromAPI);
+            console.log("Has survey numbers from API:", hasSurveyNumbersFromAPI);
+            
+            // If not available from the direct API or we got empty arrays, extract from preview data
+            if (!hasGatNumbersFromAPI) {
+                // Extract from preview data as a fallback
+                console.log("Extracting gat numbers from preview data...");
+                const gatNumbersFromPreview = data
+                    .map(item => item.gat_no)
+                    .filter(Boolean)
+                    .map(item => String(item)); // Convert all to strings for consistency
+                
+                console.log(`Found ${gatNumbersFromPreview.length} gat numbers from preview data`);
+                
+                if (gatNumbersFromPreview.length > 0) {
+                    setGatNumbers(gatNumbersFromPreview);
+                }
+            }
+            
+            if (!hasSurveyNumbersFromAPI) {
+                // Extract from preview data as a fallback
+                console.log("Extracting survey numbers from preview data...");
+                const surveyNumbersFromPreview = data
+                    .map(item => item.survey_no)
+                    .filter(Boolean)
+                    .map(item => String(item)); // Convert all to strings for consistency
+                
+                console.log(`Found ${surveyNumbersFromPreview.length} survey numbers from preview data`);
+                
+                if (surveyNumbersFromPreview.length > 0) {
+                    setSurveyNumbers(surveyNumbersFromPreview);
+                }
+            }
         } catch (error) {
             console.error("Error fetching khata numbers:", error);
             setKhataNumbers([]);
@@ -176,6 +289,43 @@ export default function ReportPage() {
             setReports([]);
         } finally {
             setIsLoading(false); // Stop loading when done
+        }
+    };
+    
+    // State to hold related khata numbers for a survey
+    const [relatedKhataNumbers, setRelatedKhataNumbers] = useState([]);
+    
+    // New function to get khata numbers associated with a survey number
+    const fetchKhataFromSurvey = async (surveyNumber) => {
+        if (!surveyNumber || !filters.district || !filters.taluka || !filters.village) return;
+        
+        try {
+            const params = new URLSearchParams({
+                district: filters.district,
+                taluka: filters.taluka,
+                village: filters.village,
+                survey_no: surveyNumber
+            });
+            
+            const response = await fetch(`${BASE_URL}/khata-from-survey/?${params}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const data = await response.json();
+            console.log("Khata from Survey Response:", data);
+            
+            if (data.khata_numbers && data.khata_numbers.length > 0) {
+                // Store the khata numbers for reference, but don't automatically switch to khata search
+                setRelatedKhataNumbers(data.khata_numbers);
+                console.log(`Survey ${surveyNumber} is associated with Khatas:`, data.khata_numbers);
+            } else {
+                setRelatedKhataNumbers([]);
+            }
+        } catch (error) {
+            console.error("Error fetching khata from survey:", error);
+            setRelatedKhataNumbers([]);
         }
     };
 
@@ -234,7 +384,6 @@ export default function ReportPage() {
             setIsLoading(false); // Stop loading when done
         }
     };
-    const [searchType, setSearchType] = useState("khata");
 
     const handleSearchTypeChange = (type) => {
         setSearchType(type);
@@ -278,7 +427,10 @@ export default function ReportPage() {
 
     // end of changes
     const fetchReportsByKhata = async (khata_no, district, taluka, village) => {
-        if (!khata_no || khata_no.trim() === "") {
+        // Convert khata_no to string to prevent TypeError
+        const khataStr = String(khata_no || "");
+        
+        if (!khataStr || khataStr.trim() === "") {
             alert("Please enter a valid Khata.");
             return;
         }
@@ -287,7 +439,7 @@ export default function ReportPage() {
             setIsLoading(true);
             // Use the khata/report-info endpoint instead of khata-preview
             const params = new URLSearchParams({
-                number: khata_no,
+                number: khataStr,
                 type: "khata",
                 district: district,
                 taluka: taluka,
@@ -313,7 +465,10 @@ export default function ReportPage() {
         }
     };
     const fetchReportsByGat = async (gat_no, district, taluka, village) => {
-        if (!gat_no || gat_no.trim() === "") {
+        // Convert gat_no to string to prevent TypeError
+        const gatStr = String(gat_no || "");
+        
+        if (!gatStr || gatStr.trim() === "") {
             alert("Please enter a valid Gat Number.");
             return;
         }
@@ -322,7 +477,7 @@ export default function ReportPage() {
             setIsLoading(true);
             // Use the same endpoint with type=gat
             const params = new URLSearchParams({
-                number: gat_no,
+                number: gatStr,
                 type: "gat",
                 district: district,
                 taluka: taluka,
@@ -349,7 +504,10 @@ export default function ReportPage() {
     };
 
 const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
-    if (!survey_no || survey_no.trim() === "") {
+    // Convert survey_no to string to prevent TypeError
+    const surveyStr = String(survey_no || "");
+    
+    if (!surveyStr || surveyStr.trim() === "") {
         alert("Please enter a valid Survey Number.");
         return;
     }
@@ -358,7 +516,7 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
         setIsLoading(true);
         // Use the same endpoint with type=survey
         const params = new URLSearchParams({
-            number: survey_no,
+            number: surveyStr,
             type: "survey",
             district: district,
             taluka: taluka,
@@ -384,7 +542,10 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
     }
 };
     const downloadReportPDF = async (khata_no, district, taluka, village, poltID) => {
-        if (!khata_no) {
+        // Convert khata_no to string to prevent TypeError
+        const khataStr = String(khata_no || "");
+        
+        if (!khataStr) {
             alert("Please enter a valid Khata.");
             return;
         }
@@ -395,21 +556,24 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
                     district: district ? district.toLowerCase() : "",
                     taluka: taluka ? taluka.toLowerCase() : "",
                     village: village ? village.toLowerCase() : "",
-                    khata_no: khata_no,
+                    khata_no: khataStr,
                     plot_id: poltID,
                 },
                 responseType: "blob",
                 headers: { Authorization: `Bearer ${token}` },
             });
     
-            saveAs(response.data, `Report_${khata_no}.pdf`);
+            saveAs(response.data, `Report_${khataStr}.pdf`);
         } catch (error) {
             console.error("Error downloading report:", error);
             alert("Download failed.");
         }
     };
     const downloadReportBySurveyNumber = async () => {
-        if (!filters.khataNumber) {
+        // Convert khataNumber to string to prevent TypeError
+        const khataStr = String(filters.khataNumber || "");
+        
+        if (!khataStr) {
             alert("Please enter a valid survey number.");
             return;
         }
@@ -420,7 +584,7 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
                 district: filters.district.toLowerCase(),
                 taluka: filters.taluka.toLowerCase(),
                 village: filters.village.toLowerCase(),
-                khata_no: filters.khataNumber,
+                khata_no: khataStr,
             });
 
             const response = await fetch(`${BASE_URL}/report-gen/?${params}`, {
@@ -432,7 +596,7 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
             }
 
             const blob = await response.blob();
-            saveAs(blob, `Report_${filters.khataNumber}.pdf`);
+            saveAs(blob, `Report_${khataStr}.pdf`);
         } catch (error) {
             console.error("Error downloading PDF:", error);
             alert("Failed to download PDF. Please try again.");
@@ -619,20 +783,14 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
                 <div className="input-group mt-3">
                     {searchType === "khata" && (
                         <div className="col-md-3 d-flex align-items-center w-100 mb-3">
-                            <select
-                                className="form-select me-2 flex-grow-1"
-                                onChange={(e) =>
-                                    handleFilterChange("khataNumber", e.target.value)
-                                }
-                                disabled={!filters.village}
-                            >
-                                <option value="">Select Khata Number</option>
-                                {khataNumbers.map((k) => (
-                                    <option key={k} value={k}>
-                                        {k}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="me-2 flex-grow-1">
+                                <SearchBar
+                                    searchType="khata"
+                                    suggestionsData={khataNumbers}
+                                    onSelectSuggestion={(value) => handleFilterChange("khataNumber", value)}
+                                    placeholder="Search or select a Khata Number"
+                                />
+                            </div>
                             <button
                                 className="btn btn-dark ms-2"
                                 onClick={() =>
@@ -650,67 +808,104 @@ const fetchReportsBySurvey = async (survey_no, district, taluka, village) => {
                         </div>
                     )}
                     {searchType === "gat" && (
-                        <div className="col-md-3 d-flex align-items-center w-100 mb-3">
-                            <select
-                                className="form-select me-2 flex-grow-1"
-                                onChange={(e) =>
-                                    handleFilterChange("gatNumber", e.target.value)
-                                }
-                                disabled={!filters.village}
-                            >
-                                <option value="">Select Gat Number</option>
-                                {gatNumbers.map((g) => (
-                                    <option key={g} value={g}>
-                                        {g}
-                                    </option>
-                                ))}
-                            </select>
-                            <button
-                                className="btn btn-dark ms-2"
-                                onClick={() =>
-                                    fetchReportsByGat(
-                                        filters.gatNumber,
-                                        filters.district,
-                                        filters.taluka,
-                                        filters.village
-                                    )
-                                }
-                                disabled={!filters.gatNumber} // Disable if no Gat number is selected
-                            >
-                                Search
-                            </button>
+                        <div className="col-md-3 d-flex flex-column w-100 mb-3">
+                            <div className="d-flex align-items-center">
+                                <div className="me-2 flex-grow-1">
+                                    <SearchBar
+                                        searchType="gat"
+                                        suggestionsData={gatNumbers}
+                                        onSelectSuggestion={(value) => handleFilterChange("gatNumber", value)}
+                                        placeholder="Search or select a Gat Number"
+                                    />
+                                </div>
+                                <button
+                                    className="btn btn-dark ms-2"
+                                    onClick={() => {
+                                        console.log("Searching by gat number:", filters.gatNumber);
+                                        fetchReportsByGat(
+                                            filters.gatNumber,
+                                            filters.district,
+                                            filters.taluka,
+                                            filters.village
+                                        )
+                                    }}
+                                    disabled={!filters.gatNumber} // Disable if no Gat number is selected
+                                >
+                                    Search
+                                </button>
+                            </div>
+                            
+                            {/* Debug info for gat numbers */}
+                            <div className="mt-2">
+                                <small className="text-muted">
+                                    {gatNumbers.length === 0 ? 
+                                        "No gat numbers available for this village" : 
+                                        `${gatNumbers.length} gat numbers available`}
+                                </small>
+                            </div>
                         </div>
                     )}
                     {searchType === "survey" && (
-                        <div className="col-md-3 d-flex align-items-center w-100 mb-3">
-                            <select
-                                className="form-select me-2 flex-grow-1"
-                                onChange={(e) =>
-                                    handleFilterChange("surveyNumber", e.target.value)
-                                }
-                                disabled={!filters.village}
-                            >
-                                <option value="">Select Survey Number</option>
-                                {surveyNumbers.map((s) => (
-                                    <option key={s} value={s}>
-                                        {s}
-                                    </option>
-                                ))}
-                            </select>
-                            <button
-                                className="btn btn-dark ms-2"
-                                onClick={() =>
-                                    fetchReportsBySurvey(
-                                        filters.surveyNumber,
-                                        filters.district,
-                                        filters.taluka,
-                                        filters.village
-                                    )
-                                }
-                                disabled={!filters.surveyNumber} // Disable if no Survey number is selected
-                            >
-                                Search
-                            </button>
+                        <div className="col-md-3 d-flex flex-column w-100 mb-3">
+                            <div className="d-flex align-items-center">
+                                <div className="me-2 flex-grow-1">
+                                    <SearchBar
+                                        searchType="survey"
+                                        suggestionsData={surveyNumbers}
+                                        onSelectSuggestion={(value) => handleFilterChange("surveyNumber", value)}
+                                        placeholder="Search or select a Survey Number"
+                                    />
+                                </div>
+                                <button
+                                    className="btn btn-dark ms-2"
+                                    onClick={() => {
+                                        console.log("Searching by survey number:", filters.surveyNumber);
+                                        fetchReportsBySurvey(
+                                            filters.surveyNumber,
+                                            filters.district,
+                                            filters.taluka,
+                                            filters.village
+                                        );
+                                    }}
+                                    disabled={!filters.surveyNumber} // Disable if no Survey number is selected
+                                >
+                                    Search
+                                </button>
+                            </div>
+                            
+                            {/* Debug info for survey numbers */}
+                            <div className="mt-2">
+                                <small className="text-muted">
+                                    {surveyNumbers.length === 0 ? 
+                                        "No survey numbers available for this village" : 
+                                        `${surveyNumbers.length} survey numbers available`}
+                                </small>
+                            </div>
+                            
+                            {/* Show related khata numbers if available */}
+                            {relatedKhataNumbers.length > 0 && (
+                                <div className="mt-2 p-2 border rounded">
+                                    <small className="text-muted">Related Khata Numbers:</small>
+                                    <div className="d-flex flex-wrap gap-1 mt-1">
+                                        {relatedKhataNumbers.slice(0, 5).map((khata, i) => (
+                                            <span 
+                                                key={i} 
+                                                className="badge bg-light text-dark border"
+                                                style={{cursor: 'pointer'}}
+                                                onClick={() => {
+                                                    setSearchType("khata");
+                                                    handleFilterChange("khataNumber", khata);
+                                                }}
+                                            >
+                                                {khata}
+                                            </span>
+                                        ))}
+                                        {relatedKhataNumbers.length > 5 && 
+                                            <span className="badge bg-light text-muted">+{relatedKhataNumbers.length - 5} more</span>
+                                        }
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                     {searchType === "owner" && (

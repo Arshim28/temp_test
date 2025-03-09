@@ -32,12 +32,22 @@ SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_SSL_PROXY_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 ALLOWED_HOSTS = ["*"]
 
 
 # CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = ["http://65.2.140.129:3000"]
+CORS_ALLOWED_ORIGINS = [
+    "http://43.204.226.30:3000",
+    "http://localhost:3000",
+    "http://43.204.226.30:3001",
+    "http://localhost:3000",
+    "https://www.terrastack.ai",
+]
 # Application definition
 
 INSTALLED_APPS = [
@@ -163,6 +173,9 @@ SENDER_MAIL = EMAIL_HOST_USER
 RAZORPAY_PUBLIC_KEY = env("RAZORPAY_PUBLIC_KEY")
 RAZORPAY_SECRET_KEY = env("RAZORPAY_SECRET_KEY")
 
+# Settings for Proxy
+PROXY_SECRET_KEY = env("PROXY_SECRET_KEY")
+PROXY_URL = env("PROXY_URL")
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
@@ -178,6 +191,5 @@ AUTH_USER_MODEL = "user_auth.CustomUser"
 DATABASE_ROUTERS = ["utils.routers.MultiDBRouter"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
 
 PAYMENT_CURRENCY = "INR"

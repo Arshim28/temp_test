@@ -22,6 +22,7 @@ from .views import (
     search_report_by_survey,
     search_report_by_gat,
     health_check,
+    get_khata_from_survey_view,
     # get_access_token
 )
 
@@ -60,5 +61,6 @@ urlpatterns = [
     path("reports/search/gat/", search_report_by_gat, name="search_report_by_gat"),
     path("reports/search/survey/", search_report_by_survey, name="search_reports"),
     path("khata/report-info/", report_info_from_khata, name="report-info-from-khata"),
+    path("khata-from-survey/", get_khata_from_survey_view, name="get-khata-from-survey"),
     path("health-check/", health_check, name="health-check"),
 ]
