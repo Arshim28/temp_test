@@ -16,7 +16,7 @@ def generate_otp() -> str:
     return otp
 
 
-def send_otp(recipient, otp):
+def send_otp(recipient, otp) -> bool:
     """Send OTP to the recipient's email."""
     try:
         message = (

@@ -252,7 +252,7 @@ export default function MapView() {
       setShowLoginPopup(false);
       router.push('/signin');
     }, 2000);
-    
+
     return () => clearTimeout(redirectTimer);
   }, [router]);
 
@@ -269,7 +269,7 @@ export default function MapView() {
         try {
           await fetch(`${API_BASE_URL}/user/`, {
             method: 'GET',
-            headers: { 
+            headers: {
               'Authorization': `Bearer ${token}`,
               'Accept': 'application/json'
             }
@@ -319,7 +319,7 @@ export default function MapView() {
   // Initialize or update map when mapStyle changes
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    
+
     console.log("[MAP INIT] Starting map initialization with style:", mapStyle);
 
     // Function to initialize map
@@ -338,7 +338,7 @@ export default function MapView() {
             mapRef.current.remove();
           }
         }
-        
+
         console.log("[MAP INIT] Creating new map with style:", mapStyle);
         // Create new map
         const map = new maplibregl.Map({
@@ -346,6 +346,7 @@ export default function MapView() {
           style: MAP_STYLES[mapStyle],
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
+          minZoom: 6,
           attributionControl: true
         });
 
@@ -419,7 +420,7 @@ export default function MapView() {
   // Load a layer onto the map
   const loadLayer = useCallback(async (layer) => {
     console.log("[LAYER] Loading layer:", layer.id);
-    
+
     if (!mapRef.current || !token) {
       console.log("[LAYER] Cannot load layer - map or token missing");
       if (!token) handleUnauthorizedAccess();
@@ -531,7 +532,7 @@ export default function MapView() {
       // Extract the token part from the response
       const tokenParam = tileUrl.includes('token=') ? tileUrl.split('token=')[1] : '';
       console.log("[LAYER] Token param extracted:", tokenParam ? "Success" : "Failed");
-      
+
       // Format for OpenResty proxy container at port 8088
       const finalTileUrl = filter
         ? `${TILE_ENDPOINT_URL}/${layer.id}/{z}/{x}/{y}.pbf?token=${tokenParam}&cql_filter=${encodeURIComponent(filter)}`
@@ -552,13 +553,13 @@ export default function MapView() {
       } catch (sourceError) {
         // If adding the source fails, try with alternative URL format
         console.warn("[LAYER] Failed to add source with primary URL format, trying alternative:", sourceError.message);
-        
+
         try {
           // Try alternative format with dot notation instead of slash
           const alternativeLayerId = formattedLayerId.replace(/\//g, '.');
           const alternativeUrl = `${TILE_ENDPOINT_URL}/${alternativeLayerId}/{z}/{x}/{y}.pbf?token=${tokenParam}`;
           console.log("[LAYER] Trying alternative URL format:", alternativeUrl ? "Created" : "Failed");
-          
+
           map.addSource(sourceId, {
             type: 'vector',
             tiles: [alternativeUrl],
@@ -614,7 +615,7 @@ export default function MapView() {
   // Handle clicking on a feature
   const handleFeatureClick = useCallback((e) => {
     console.log("[FEATURE CLICK] Event received", e);
-    
+
     if (!mapRef.current || !infoModeActive) {
       console.log("[FEATURE CLICK] Skipping - map ref missing or info mode inactive");
       return;
@@ -627,11 +628,11 @@ export default function MapView() {
     }
 
     console.log("[FEATURE CLICK] Feature found:", feature.id);
-    
+
     // Extract khata numbers if available
     const properties = feature.properties;
     console.log("[FEATURE CLICK] Feature properties:", properties);
-    
+
     const khataNo = properties.khata_no;
     console.log("[FEATURE CLICK] Khata number:", khataNo);
 
@@ -866,7 +867,7 @@ export default function MapView() {
       if (mapRef.current) {
         mapRef.current.flyTo({
           center: [parseFloat(longitude), parseFloat(latitude)],
-          zoom: 16,
+          zoom: 10,
           essential: true
         });
 
@@ -940,7 +941,7 @@ export default function MapView() {
     console.log("[REPORT] Starting report download request with params:", {
       khataNo, district, taluka, village
     });
-    
+
     if (!khataNo || !district) {
       console.error("[REPORT] Missing required parameters for report download");
       setError('Missing required information for report download');
@@ -966,7 +967,7 @@ export default function MapView() {
 
       const url = `${API_BASE_URL}/report-gen/?${params}`;
       console.log("[REPORT] Sending API request to:", url);
-      
+
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -974,26 +975,26 @@ export default function MapView() {
       });
 
       console.log("[REPORT] Response status:", response.status);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to generate report. Status: ${response.status}`);
       }
 
       console.log("[REPORT] Report generation successful, processing download");
-      
+
       // Convert response to blob and download
       const blob = await response.blob();
       console.log("[REPORT] Blob received, size:", blob.size);
-      
+
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = `Report_${khataNo}.pdf`;
       document.body.appendChild(link);
-      
+
       console.log("[REPORT] Triggering download");
       link.click();
-      
+
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
       console.log("[REPORT] Download complete");
@@ -1369,7 +1370,7 @@ export default function MapView() {
   // Generate and download map export
   const generateMapExport = useCallback(async (options) => {
     console.log("[EXPORT] Starting map export with options:", options);
-    
+
     if (!mapRef.current) {
       console.error("[EXPORT] Map reference not available");
       return;
@@ -1460,7 +1461,7 @@ export default function MapView() {
   // Zoom to layer extent
   const zoomToLayerExtent = useCallback(async (layerId) => {
     console.log("[ZOOM] Attempting to zoom to layer extent:", layerId);
-    
+
     if (!mapRef.current || !token) {
       console.error("[ZOOM] Cannot zoom - map or token missing");
       if (!token) handleUnauthorizedAccess();
@@ -1632,7 +1633,6 @@ export default function MapView() {
             <span className="control-label">Layers</span>
           </button>
 
-
           <button
             className={`sidebar-control ${sidebarMode === 'search' ? 'active' : ''}`}
             onClick={() => toggleSidebar('search')}
@@ -1700,26 +1700,17 @@ export default function MapView() {
         {/* Sidebar Content */}
         <div className="sidebar-content">
           {/* Map Style Control */}
-          <MapStyleControl
+          {/* <MapStyleControl
             currentStyle={mapStyle}
             onStyleChange={setMapStyle}
-          />
+          /> */}
 
           {layerPopupOpen && (
             <div className="layer-popup">
               <div className="popup-content">
-                <LayerControl {...layerControlProps} />
-                <button 
-                  className="done-btn" 
-                  onClick={() => setLayerPopupOpen(false)}
-                >Done
-                </button>
+                <LayerControl {...layerControlProps} setLayerPopupOpen={setLayerPopupOpen} />
               </div>
             </div>
-          )}
-          {/* Search Panel */}
-          {sidebarMode === 'search' && (
-            <SearchPanel {...searchPanelProps} />
           )}
 
           {/* Feature Panel */}
@@ -1727,35 +1718,21 @@ export default function MapView() {
             <FeaturePanel {...featurePanelProps} />
           )}
 
-          {/* Filter Panel */}
-          {sidebarMode === 'filter' && (
-            <FilterPanel {...filterPanelProps} />
-          )}
-
-          {/* Measurement Tools */}
-          {sidebarMode === 'measurement' && (
-            <MeasurementTools {...measurementToolsProps} />
-          )}
-
-          {/* Heatmap Control */}
-          {sidebarMode === 'heatmap' && (
-            <HeatmapControl {...heatmapControlProps} />
-          )}
-
-          {/* Export Tools */}
-          {sidebarMode === 'export' && (
-            <ExportTools {...exportToolsProps} />
-          )}
-
           {/* Legend Panel - Always visible when sidebar is open */}
-          {expandedSidebar && activeLayers.length > 0 && (
+          {/* {expandedSidebar && activeLayers.length > 0 && (
             <LegendPanel
               activeLayers={activeLayers}
               metadata={metadataCache.current}
+              style={{
+                marginLeft: '200px', // Add left margin here
+                paddingLeft: '20px'
+              }} // Add left padding here
             />
-          )}
+          )} */}
         </div>
       </div>
+
+
 
       {/* Map Container */}
       <div className="map-wrapper">
@@ -1769,6 +1746,25 @@ export default function MapView() {
           </div>
         )}
       </div>
+
+      {/* Map Style Control at Top Right */}
+      <div className="map-style-control">
+        <MapStyleControl
+          currentStyle={mapStyle}
+          onStyleChange={setMapStyle}
+        />
+      </div>
+
+      {/* Right Sidebar for Panels */}
+      {['search', 'filter', 'measurement', 'heatmap', 'export'].includes(sidebarMode) && (
+        <div className="right-sidebar">
+          {sidebarMode === 'search' && <SearchPanel {...searchPanelProps} />}
+          {sidebarMode === 'filter' && <FilterPanel {...filterPanelProps} />}
+          {sidebarMode === 'measurement' && <MeasurementTools {...measurementToolsProps} />}
+          {sidebarMode === 'heatmap' && <HeatmapControl {...heatmapControlProps} />}
+          {sidebarMode === 'export' && <ExportTools {...exportToolsProps} />}
+        </div>
+      )}
     </div>
   );
 }

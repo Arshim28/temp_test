@@ -4,12 +4,9 @@ from django.contrib.admin import ModelAdmin
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from django.contrib.auth.admin import UserAdmin
 from user_auth.models import CustomUser, UserProfile
-from django.contrib.admin.sites import AdminSite
-from django.contrib.admin.forms import AuthenticationForm
 from django.contrib.admin import SimpleListFilter
 
 from django.urls import reverse
-import logging
 
 
 class AccessLevelFilter(SimpleListFilter):
@@ -125,7 +122,6 @@ class CustomUserAdmin(UserAdmin):
 class UserProfileAdmin(ModelAdmin):
     list_display = ["user"]
     search_fields = ["user__email"]
-
 
 
 admin.site.register(UserProfile, UserProfileAdmin)
